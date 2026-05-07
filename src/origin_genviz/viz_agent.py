@@ -94,8 +94,11 @@ Required document shape (mandatory — no deviations):
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 {tailwind_config}
-  <!-- Include Recharts ONLY if rendering charts: -->
-  <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
+  <!-- Recharts 2.x UMD requires PropTypes as a peer global. Load BOTH or
+       Recharts' factory throws and the widget renders blank. Pin to v2 —
+       v3 needs `react-is` instead and is less stable for UMD usage. -->
+  <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js" crossorigin></script>
+  <script src="https://unpkg.com/recharts@2/umd/Recharts.js" crossorigin></script>
   <style>
 {origin_css}
   </style>
@@ -104,7 +107,7 @@ Required document shape (mandatory — no deviations):
   <div id="root"></div>
   <script type="text/babel" data-presets="react">
     const {{ useState, useMemo, useEffect }} = React;
-    // If using Recharts:
+    // If using Recharts (Recharts global is loaded above):
     // const {{ LineChart, BarChart, AreaChart, PieChart, XAxis, YAxis,
     //         CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     //         Line, Bar, Area, Pie, Cell }} = Recharts;
@@ -115,7 +118,13 @@ Required document shape (mandatory — no deviations):
       return ( /* JSX */ );
     }}
 
-    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+    // Defensive boot — surface JSX/runtime errors instead of rendering blank.
+    try {{
+      ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+    }} catch (e) {{
+      const r = document.getElementById("root");
+      r.innerHTML = '<div style="padding:24px;font-family:Inter,sans-serif;color:#33302E"><div style="font-family:\\'Fira Code\\',monospace;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#903C2E;margin-bottom:8px">Origin \xb7 Render Error</div><pre style="white-space:pre-wrap;color:#C84B2C;font-size:13px;margin:0">' + (e && e.stack || e) + '</pre></div>';
+    }}
   </script>
 </body>
 </html>
