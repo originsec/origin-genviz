@@ -26,6 +26,30 @@ from .oauth import build_oauth_provider
 log = logging.getLogger(__name__)
 
 
+def _repair_json_schema(node: object) -> None:
+    """In-place repair of common JSON-Schema lapses in upstream tool schemas.
+
+    Strict validators (e.g. VS Code's MCP chat client) reject schemas where
+    `{"type": "array"}` has no `items` clause. Goose / Claude Code accept
+    them. We patch in a permissive `items: {}` so all clients can validate
+    without narrowing what's accepted by the upstream.
+
+    Walks every value reachable from the root since tool schemas nest
+    deeply (oneOf / anyOf / properties / items / additionalProperties /
+    patternProperties / etc.).
+    """
+    if isinstance(node, dict):
+        t = node.get("type")
+        is_array = t == "array" or (isinstance(t, list) and "array" in t)
+        if is_array and "items" not in node:
+            node["items"] = {}
+        for v in node.values():
+            _repair_json_schema(v)
+    elif isinstance(node, list):
+        for v in node:
+            _repair_json_schema(v)
+
+
 class Upstream:
     def __init__(self, config: Config) -> None:
         self._config = config
@@ -62,7 +86,12 @@ class Upstream:
             return self._tools_cache
         async with self._session() as session:
             result = await session.list_tools()
-        self._tools_cache = list(result.tools)
+        tools = list(result.tools)
+        for t in tools:
+            _repair_json_schema(t.inputSchema)
+            if t.outputSchema is not None:
+                _repair_json_schema(t.outputSchema)
+        self._tools_cache = tools
         log.info("Discovered %d upstream tools", len(self._tools_cache))
         return self._tools_cache
 
