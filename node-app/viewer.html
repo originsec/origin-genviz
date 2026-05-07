@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Origin Genviz Viewer</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--background, #f8f4ee);
+        color: var(--foreground, #33302e);
+        font-family:
+          var(--font-sans, "Inter"),
+          system-ui,
+          -apple-system,
+          sans-serif;
+        font-size: 13px;
+        line-height: 1.4;
+        min-height: 100%;
+      }
+      #root {
+        min-height: 100vh;
+      }
+      .empty {
+        padding: 24px;
+        color: #66605c;
+        font-family: "Fira Code", ui-monospace, monospace;
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .error {
+        padding: 16px 24px;
+        font-family: "Fira Code", ui-monospace, monospace;
+        font-size: 12px;
+        color: #c84b2c;
+        white-space: pre-wrap;
+      }
+      iframe.widget {
+        display: block;
+        width: 100%;
+        max-width: 720px;
+        margin: 0;
+        border: 0;
+        background: transparent;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div class="empty">Origin · awaiting tool result</div>
+    </div>
+    <script type="module">
+      // Load the MCP Apps SDK from esm.sh. esm.sh is declared in the
+      // viewer resource's CSP `resourceDomains`, so this script-load is
+      // allowed under the host-enforced CSP.
+      import { App } from "https://esm.sh/@modelcontextprotocol/ext-apps@1.7.1";
+
+      const VIZ_META_KEY = "io.originhq/genviz";
+      const root = document.getElementById("root");
+
+      function renderEmpty(text) {
+        root.innerHTML = "";
+        const div = document.createElement("div");
+        div.className = "empty";
+        div.textContent = text;
+        root.appendChild(div);
+      }
+
+      function renderError(text) {
+        root.innerHTML = "";
+        const div = document.createElement("div");
+        div.className = "error";
+        div.textContent = text;
+        root.appendChild(div);
+      }
+
+      // Resize the iframe to match its content. The widget itself sets
+      // body height; we observe it and grow the parent iframe via the
+      // App's size-changed notification (handled by App internals when
+      // we set body height).
+      function fitIframe(iframe) {
+        const sync = () => {
+          try {
+            const doc = iframe.contentDocument;
+            if (!doc) return;
+            const h = Math.max(
+              doc.documentElement.scrollHeight,
+              doc.body ? doc.body.scrollHeight : 0,
+            );
+            if (h && Math.abs(iframe.clientHeight - h) > 4) {
+              iframe.style.height = h + "px";
+              // Bubble up so the host can resize the App iframe too.
+              document.body.style.minHeight = h + "px";
+            }
+          } catch {
+            /* cross-origin srcdoc; nothing to do */
+          }
+        };
+        iframe.addEventListener("load", () => {
+          sync();
+          // Widgets with async layout (font load, Recharts measure) settle
+          // a tick later — re-sync a few times to catch them.
+          setTimeout(sync, 80);
+          setTimeout(sync, 250);
+          setTimeout(sync, 800);
+        });
+      }
+
+      function renderHtml(html, title) {
+        root.innerHTML = "";
+        const iframe = document.createElement("iframe");
+        iframe.className = "widget";
+        if (title) iframe.title = title;
+        // sandbox WITHOUT allow-same-origin: widget gets opaque origin and
+        // can't poke at our viewer document. allow-scripts is required for
+        // the React/Babel inside the widget to run.
+        iframe.setAttribute("sandbox", "allow-scripts");
+        iframe.srcdoc = html;
+        fitIframe(iframe);
+        root.appendChild(iframe);
+      }
+
+      function pickViz(result) {
+        if (!result || typeof result !== "object") return null;
+        const meta = result._meta;
+        if (!meta || typeof meta !== "object") return null;
+        const v = meta[VIZ_META_KEY];
+        if (!v || typeof v !== "object") return null;
+        if (typeof v.html !== "string" || !v.html) return null;
+        return { html: v.html, title: typeof v.title === "string" ? v.title : null };
+      }
+
+      const app = new App({ name: "origin-genviz-viewer", version: "0.2.0" });
+
+      app.ontoolresult = (params) => {
+        try {
+          if (params && params.isError) {
+            // Surface upstream error text instead of an empty view.
+            const text =
+              (params.content || [])
+                .filter((c) => c && c.type === "text" && typeof c.text === "string")
+                .map((c) => c.text)
+                .join("\n") || "(no error detail)";
+            renderError("Tool error\n\n" + text);
+            return;
+          }
+          const viz = pickViz(params);
+          if (!viz) {
+            renderEmpty("Origin · no visualization for this result");
+            return;
+          }
+          renderHtml(viz.html, viz.title);
+        } catch (e) {
+          renderError("Viewer crashed: " + (e && e.stack ? e.stack : String(e)));
+        }
+      };
+
+      app.onteardown = async () => ({});
+
+      try {
+        await app.connect();
+      } catch (e) {
+        renderError("App.connect failed: " + (e && e.message ? e.message : String(e)));
+      }
+    </script>
+  </body>
+</html>

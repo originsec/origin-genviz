@@ -1,19 +1,30 @@
 # origin-genviz
 
-Stdio MCP proxy that sits in front of the **origin-staging** MCP server.
-Every tool from origin-staging is re-exposed verbatim. After each call,
-the raw result is shown to a Cerebras-backed agent (default
-`zai-glm-4.7`, temp 0.2). When the agent decides a chart, table, or
-KPI card would actually help, it returns a self-contained HTML widget
-styled with the Origin design system, which the proxy attaches to the
-response as an MCP **`ui://`** embedded resource (MCP App UI / `mcp-ui`).
+MCP App that sits in front of the **origin-staging** MCP server. Every
+upstream tool is re-exposed verbatim. After each call, the raw result is
+shown to a Cerebras-backed agent (default `zai-glm-4.7`, temp 0.2). When
+the agent decides a chart, table, or KPI card would actually help, it
+returns a self-contained HTML widget styled with the Origin design
+system. The widget is served to the host using the **MCP Apps SDK**
+(`@modelcontextprotocol/ext-apps`) — declared with a proper CSP so the
+CDN scripts (Recharts, Tailwind, Google Fonts) load reliably across
+hosts (Claude Desktop, basic-host, etc).
+
+Two processes:
 
 ```
-client ──tools/call──▶ origin-genviz ──tools/call──▶ origin-staging
-                              ▲                              │
-                              │                              ▼
-                              └── + ui:// resource ◀── viz agent (Cerebras)
+host ──HTTP/MCP──▶ node-app  (MCP Apps wrapper, HTTP)
+                      │
+                      └─stdio MCP─▶ src/origin_genviz  (Python: OAuth + viz agent)
+                                              │
+                                              └─HTTP/MCP─▶ origin-staging
 ```
+
+The Python proxy still owns OAuth against origin-staging and the
+Cerebras viz call. The Node wrapper exposes the MCP App over streamable
+HTTP, forwards tools, lifts the agent-generated HTML out of the
+`_meta` sidechannel on each tool result, and renders it inside the
+viewer resource (a sandboxed iframe with the right CSP).
 
 ## Install
 
@@ -56,25 +67,49 @@ Copy `.env.example` and set at least `CEREBRAS_API_KEY`. Then run
 ## Run
 
 ```bash
-CEREBRAS_API_KEY=csk-... uv run origin-genviz
+# install Node deps once
+cd node-app && npm install && cd ..
+
+# serve the MCP App over streamable HTTP at /mcp
+CEREBRAS_API_KEY=csk-... npm --prefix node-app start
+# => http://127.0.0.1:3001/mcp
 ```
 
-It speaks MCP over stdio — connect any MCP client to the process.
+The Node process auto-spawns the Python proxy as a stdio child and
+inherits env, so `CEREBRAS_API_KEY` and the OAuth tokens just flow
+through. To run Python directly without the App layer (debugging, or
+old mcp-ui clients), `uv run origin-genviz` still works — it now emits
+the widget HTML on `result._meta["io.originhq/genviz"]` instead of as
+an embedded `ui://` resource.
 
-## Wire it into Claude Code
+| env var (Node)         | default           | purpose                                         |
+| ---------------------- | ----------------- | ----------------------------------------------- |
+| `PORT`                 | `3001`            | HTTP port for `/mcp`.                           |
+| `HOST`                 | `127.0.0.1`       | Bind address. Set `0.0.0.0` to expose on LAN.   |
+| `GENVIZ_PYTHON_CMD`    | `uv`              | Command used to spawn the Python child.         |
+| `GENVIZ_PYTHON_ARGS`   | `run origin-genviz` | Args for the Python child.                    |
+| `GENVIZ_PYTHON_CWD`    | repo root         | cwd for the Python child.                       |
+
+## Wire it into a host
 
 ```bash
-# 1. authenticate the upstream once
-uv --directory /home/depmod/code/sandpit/origin-genviz run origin-genviz login
+# 1. authenticate the upstream once (Python side, one-shot OAuth)
+uv run origin-genviz login
 
-# 2. register the proxy with Claude Code
-claude mcp add origin-genviz \
-  --env CEREBRAS_API_KEY=csk-... \
-  -- uv --directory /home/depmod/code/sandpit/origin-genviz run origin-genviz
+# 2. start the MCP App
+CEREBRAS_API_KEY=csk-... npm --prefix node-app start
+
+# 3. point your host at http://127.0.0.1:3001/mcp
 ```
 
-origin-genviz no longer needs origin-staging configured in Claude Code —
-it has its own OAuth state.
+For Claude Code:
+
+```bash
+claude mcp add --transport http origin-genviz http://127.0.0.1:3001/mcp
+```
+
+origin-genviz handles its own upstream OAuth — origin-staging does not
+need to be configured in the host.
 
 ## Configuration reference
 
@@ -108,10 +143,10 @@ Output is always strict JSON (`visualize` / `title` / `html` / `rationale`).
 Any agent failure (timeout, malformed JSON, network) is non-fatal — the
 raw result is returned unchanged.
 
-Generated HTML must be **fully self-contained**: inline CSS, no CDN
-scripts, no external fonts. Charts are hand-written SVG. The Origin
-design tokens are injected into every prompt and re-emitted as CSS
-variables in the widget.
+Generated HTML is React + Tailwind + Recharts loaded from CDN, plus
+inline `<style>` and inline data. The viewer's CSP whitelists the CDN
+origins (see `node-app/server.ts` → `WIDGET_RESOURCE_DOMAINS`); add to
+that list if you change the prompt to use a different CDN.
 
 To re-skin: edit `src/origin_genviz/design_tokens.py`. Changes take
 effect on the next tool call.
@@ -132,9 +167,15 @@ update one, update the other.
 ## Layout
 
 ```
-src/origin_genviz/
+node-app/                 MCP Apps wrapper (TypeScript, HTTP)
+├── main.ts               streamable-HTTP entry point
+├── server.ts             lowlevel MCP server: forwards tools, attaches viewer URI + CSP
+├── upstream.ts           MCP stdio client that spawns the Python proxy
+└── viewer.html           sandboxed viewer that srcdoc-renders the widget HTML
+
+src/origin_genviz/        Python upstream proxy (stdio MCP)
 ├── __main__.py        argparse: serve (default) | login | logout | status
-├── server.py          lowlevel MCP server, list_tools/call_tool handlers
+├── server.py          lowlevel MCP server; emits widget HTML on result._meta
 ├── upstream.py        streamable-http client to origin-staging
 ├── oauth.py           FileTokenStorage + OAuthClientProvider + login flow
 ├── viz_agent.py       Cerebras call + JSON parse

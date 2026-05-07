@@ -1,0 +1,28 @@
+{
+  "name": "origin-genviz-app",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "MCP Apps wrapper around the origin-genviz Python proxy. Forwards every upstream tool, fetches the agent-generated HTML widget over the result _meta sidechannel, and re-publishes it as a per-call ui:// resource with a proper CSP so CDN scripts (Recharts, Tailwind, Google Fonts) load reliably across hosts.",
+  "main": "main.ts",
+  "scripts": {
+    "start": "tsx main.ts",
+    "start:stdio": "tsx main.ts --stdio",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/ext-apps": "^1.7.1",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.6.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3"
+  }
+}

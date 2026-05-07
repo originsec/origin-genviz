@@ -9,7 +9,6 @@ structuredContent on responses.
 from __future__ import annotations
 
 import logging
-import uuid
 from typing import Any
 
 import mcp.types as types
@@ -26,14 +25,14 @@ log = logging.getLogger(__name__)
 
 
 SERVER_NAME = "origin-genviz"
-SERVER_VERSION = "0.1.0"
-# Plain "text/html" is what the deployed mcp-ui client SDK (e.g. goose
-# pins @mcp-ui/client@6.1.0) does exact-string-matches against. The newer
-# "text/html;profile=mcp-app" form (proposed MCP Apps standard) is what
-# the SDK on GitHub HEAD looks for, but isn't yet shipped in real clients
-# — sending it produces "Unsupported resource type." in goose. Plain
-# text/html is what every renderer supports today.
-UI_MIME = "text/html"
+SERVER_VERSION = "0.2.0"
+
+# Sidechannel key under CallToolResult._meta where the agent's generated
+# widget HTML rides. The Node MCP Apps wrapper consumes this, registers
+# the HTML as a per-call ui:// resource, attaches `_meta.ui.resourceUri`
+# + a CSP that allows the CDN scripts the widget uses, and strips the
+# sidechannel before forwarding to the host.
+VIZ_META_KEY = "io.originhq/genviz"
 
 
 def _extract_text(content_blocks: list[types.ContentBlock]) -> str:
@@ -62,24 +61,6 @@ def _extract_text(content_blocks: list[types.ContentBlock]) -> str:
             if text:
                 parts.append(text)
     return "\n\n".join(parts)
-
-
-def _make_ui_resource(tool_name: str, html: str, title: str | None) -> types.EmbeddedResource:
-    """Return an MCP embedded resource using the ui:// scheme (MCP App UI / mcp-ui)."""
-    safe_tool = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in tool_name)
-    uri = f"ui://origin-genviz/{safe_tool}/{uuid.uuid4().hex[:12]}"
-    annotations = None
-    if title:
-        annotations = types.Annotations(audience=["user"], priority=0.9)
-    return types.EmbeddedResource(
-        type="resource",
-        resource=types.TextResourceContents(
-            uri=uri,
-            mimeType=UI_MIME,
-            text=html,
-        ),
-        annotations=annotations,
-    )
 
 
 def _unwrap(exc: BaseException) -> BaseException:
@@ -169,19 +150,30 @@ def build_server(config: Config, upstream: Upstream, agent: VizAgent) -> Server:
                     text_for_agent = repr(structured)
             decision = await agent.decide(name, arguments, text_for_agent, is_error)
 
+        meta: dict[str, Any] | None = None
         if decision and decision.visualize and decision.html:
-            content.append(_make_ui_resource(name, decision.html, decision.title))
+            meta = {
+                VIZ_META_KEY: {
+                    "html": decision.html,
+                    "title": decision.title,
+                    "tool": name,
+                    "rationale": decision.rationale,
+                }
+            }
             log.info(
-                "appended viz for tool=%s (rationale=%s)", name, decision.rationale
+                "viz emitted for tool=%s (rationale=%s)", name, decision.rationale
             )
         elif decision and decision.rationale:
             log.debug("no viz for %s: %s", name, decision.rationale)
 
-        result = types.CallToolResult(
-            content=content,
-            isError=is_error,
-            structuredContent=structured,
-        )
+        kwargs: dict[str, Any] = {
+            "content": content,
+            "isError": is_error,
+            "structuredContent": structured,
+        }
+        if meta is not None:
+            kwargs["_meta"] = meta
+        result = types.CallToolResult(**kwargs)
         return types.ServerResult(result)
 
     # Register directly on request_handlers so we have full control over
