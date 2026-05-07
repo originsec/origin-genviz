@@ -1,89 +1,158 @@
-"""Origin design system tokens, baked into the agent's HTML output.
+"""Origin design system tokens for runtime use.
 
-Tokens here are a reasonable Origin-flavored dark theme. Tune these to
-match the canonical Origin design system once accessible — the agent
-just substitutes them into the system prompt and Tailwind config, so
-changes here propagate immediately to all generated visualizations.
+The canonical reference lives in `docs/origin-design/colors_and_type.css`
+(also kept as a string here for self-containment when the agent inlines
+it into a generated HTML widget). The Tailwind config block exposes the
+tokens with class names that match the semantic vocabulary of the design
+system — bone, surface, carbon, ember, jade, hairline, viz, etc.
+
+Constraints lifted from the Origin spec:
+  - ~90% warm neutrals (bone / surface / carbon)
+  - Accents (jade / ember / iris / bronze) appear once per moment, never
+    as ambient surface
+  - Status colors (active / idle / warning / danger) are functional
+  - Viz palette is chart-only
+  - Internal-comms palette is employee-facing only — NOT exposed here
+    to discourage accidental use in customer-facing visualizations
 """
-
 from __future__ import annotations
 
+# Canonical Origin tokens — keep in sync with docs/origin-design/colors_and_type.css
 ORIGIN_TOKENS = {
-    "color": {
-        "bg": "#0B0D10",
-        "surface": "#13161B",
-        "surface_alt": "#1B2027",
-        "border": "#21262D",
-        "text": "#E6EDF3",
-        "text_muted": "#7D8590",
-        "text_dim": "#484F58",
-        "accent": "#5B8CFF",
-        "accent_soft": "#1F2D4A",
-        "success": "#3FB950",
-        "warn": "#D29922",
-        "error": "#F85149",
-        "chart": [
-            "#5B8CFF",
-            "#7CCAFC",
-            "#A371F7",
-            "#3FB950",
-            "#D29922",
-            "#F85149",
-            "#79C0FF",
-            "#56D364",
-        ],
+    "neutral": {
+        "bone": "#FFF1E5",
+        "surface": "#FFFCF8",
+        "muted": "#99918A",
+        "slate": "#66605C",
+        "carbon": "#33302E",
+        "obsidian": "#1A1614",
+    },
+    "accent": {
+        "jade": "#4E848C",
+        "ember": "#903C2E",
+        "iris": "#6B5FA8",
+        "bronze": "#97753E",
+    },
+    "interactive": {
+        "border": "#E6D9CE",
+        "border_strong": "#C4B8AC",
+        "selection": "#EDD9C4",
+    },
+    "status": {
+        "active": "#22C55E",
+        "idle": "#C0B6AE",
+        "warning": "#F59E0B",
+        "danger": "#C84B2C",
+    },
+    "viz": {
+        # Use this exact ordering as the chart series sequence.
+        "violet": "#8B5CF6",
+        "blue": "#3B82F6",
+        "green": "#10B981",
+        "yellow": "#FACC15",
+        "orange": "#F97316",
     },
     "type": {
-        "family": "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-        "mono": "'JetBrains Mono', 'SF Mono', Menlo, monospace",
+        "display": '"Fira Code", ui-monospace, "SF Mono", Menlo, Consolas, monospace',
+        "body": '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif',
     },
-    "radius": "10px",
-    "radius_sm": "6px",
-    "radius_lg": "14px",
-    "spacing_unit": "8px",
-    "shadow": "0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.25)",
+    "radius": {
+        "xs": "2px",
+        "sm": "4px",
+        "md": "6px",
+        "lg": "10px",
+        "xl": "16px",
+        "pill": "999px",
+    },
+    "shadow": {
+        "xs": "0 1px 0 rgba(26, 22, 20, 0.04)",
+        "sm": "0 1px 2px rgba(26, 22, 20, 0.06), 0 1px 1px rgba(26, 22, 20, 0.04)",
+        "md": "0 4px 12px rgba(26, 22, 20, 0.06), 0 1px 2px rgba(26, 22, 20, 0.04)",
+        "lg": "0 12px 28px rgba(26, 22, 20, 0.08), 0 2px 4px rgba(26, 22, 20, 0.05)",
+        "xl": "0 24px 60px rgba(26, 22, 20, 0.12), 0 4px 8px rgba(26, 22, 20, 0.06)",
+    },
+    "viz_sequence": ["violet", "blue", "green", "yellow", "orange"],
 }
+
+
+def google_fonts_link() -> str:
+    """Drop into <head> to load Fira Code + Inter."""
+    return (
+        '<link rel="preconnect" href="https://fonts.googleapis.com">\n'
+        '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
+        '<link href="https://fonts.googleapis.com/css2?'
+        "family=Fira+Code:wght@400;500;600;700"
+        "&family=Inter:wght@300;400;500;600;700;800"
+        '&display=swap" rel="stylesheet">'
+    )
 
 
 def tailwind_config_block() -> str:
     """A <script> block configuring Tailwind with Origin tokens.
 
-    Drop this immediately after the Tailwind CDN <script>. Lets the agent
-    write Tailwind utilities like bg-origin-surface, text-origin-text,
-    border-origin-border, etc.
+    Drop immediately after the Tailwind CDN <script>. Lets the agent
+    write idiomatic Tailwind: bg-bone, text-carbon, border-hairline,
+    text-ember, bg-viz-violet, font-display, etc.
     """
-    c = ORIGIN_TOKENS["color"]
-    chart_entries = ", ".join(f'"chart-{i + 1}": "{v}"' for i, v in enumerate(c["chart"]))
-    return f"""
+    n = ORIGIN_TOKENS["neutral"]
+    a = ORIGIN_TOKENS["accent"]
+    i = ORIGIN_TOKENS["interactive"]
+    s = ORIGIN_TOKENS["status"]
+    v = ORIGIN_TOKENS["viz"]
+    r = ORIGIN_TOKENS["radius"]
+    sh = ORIGIN_TOKENS["shadow"]
+
+    return f"""\
 <script>
   tailwind.config = {{
     theme: {{
       extend: {{
         colors: {{
-          origin: {{
-            bg: "{c['bg']}",
-            surface: "{c['surface']}",
-            "surface-alt": "{c['surface_alt']}",
-            border: "{c['border']}",
-            text: "{c['text']}",
-            "text-muted": "{c['text_muted']}",
-            "text-dim": "{c['text_dim']}",
-            accent: "{c['accent']}",
-            "accent-soft": "{c['accent_soft']}",
-            success: "{c['success']}",
-            warn: "{c['warn']}",
-            error: "{c['error']}",
-            {chart_entries}
+          bone: "{n['bone']}",
+          surface: "{n['surface']}",
+          muted: "{n['muted']}",
+          slate: "{n['slate']}",
+          carbon: "{n['carbon']}",
+          obsidian: "{n['obsidian']}",
+          jade: "{a['jade']}",
+          ember: "{a['ember']}",
+          iris: "{a['iris']}",
+          bronze: "{a['bronze']}",
+          hairline: {{ DEFAULT: "{i['border']}", strong: "{i['border_strong']}" }},
+          selection: "{i['selection']}",
+          active: "{s['active']}",
+          idle: "{s['idle']}",
+          warning: "{s['warning']}",
+          danger: "{s['danger']}",
+          viz: {{
+            violet: "{v['violet']}",
+            blue: "{v['blue']}",
+            green: "{v['green']}",
+            yellow: "{v['yellow']}",
+            orange: "{v['orange']}"
           }}
         }},
         fontFamily: {{
-          sans: ["Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
-          mono: ["JetBrains Mono", "SF Mono", "Menlo", "monospace"]
+          display: ["Fira Code", "ui-monospace", "SF Mono", "Menlo", "Consolas", "monospace"],
+          mono:    ["Fira Code", "ui-monospace", "SF Mono", "Menlo", "Consolas", "monospace"],
+          body:    ["Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "system-ui", "sans-serif"],
+          sans:    ["Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "system-ui", "sans-serif"]
+        }},
+        letterSpacing: {{
+          display: "-0.03em",
+          "display-tight": "-0.04em",
+          subhead: "0.02em",
+          label: "0.08em"
         }},
         borderRadius: {{
-          DEFAULT: "{ORIGIN_TOKENS['radius']}",
-          sm: "{ORIGIN_TOKENS['radius_sm']}",
-          lg: "{ORIGIN_TOKENS['radius_lg']}"
+          xs: "{r['xs']}", sm: "{r['sm']}", md: "{r['md']}", lg: "{r['lg']}", xl: "{r['xl']}", pill: "{r['pill']}"
+        }},
+        boxShadow: {{
+          xs: "{sh['xs']}",
+          sm: "{sh['sm']}",
+          md: "{sh['md']}",
+          lg: "{sh['lg']}",
+          xl: "{sh['xl']}"
         }}
       }}
     }}
@@ -92,68 +161,164 @@ def tailwind_config_block() -> str:
 """.strip()
 
 
-def design_brief_for_agent() -> str:
-    """Compact, prescriptive description of Origin look & feel for the LLM."""
-    c = ORIGIN_TOKENS["color"]
+def origin_base_css() -> str:
+    """A compact subset of colors_and_type.css to inline alongside Tailwind.
+
+    Carries the CSS custom properties (so non-Tailwind selectors work) and
+    a few element defaults.
+    """
+    n = ORIGIN_TOKENS["neutral"]
+    a = ORIGIN_TOKENS["accent"]
+    i = ORIGIN_TOKENS["interactive"]
+    s = ORIGIN_TOKENS["status"]
+    v = ORIGIN_TOKENS["viz"]
     return f"""\
-ORIGIN DESIGN SYSTEM — dark, restrained, dense.
-
-Palette (Tailwind theme is preconfigured with these as `origin-*`):
-  bg                  {c['bg']}      → bg-origin-bg
-  surface             {c['surface']}    → bg-origin-surface (cards)
-  surface-alt         {c['surface_alt']}    → bg-origin-surface-alt (hover/zebra)
-  border              {c['border']}    → border-origin-border
-  text                {c['text']}    → text-origin-text
-  text-muted          {c['text_muted']}    → text-origin-text-muted (labels, secondary)
-  text-dim            {c['text_dim']}    → text-origin-text-dim (captions, axis ticks)
-  accent              {c['accent']}    → text-origin-accent / bg-origin-accent (single accent, sparingly)
-  accent-soft         {c['accent_soft']}    → bg-origin-accent-soft (accent backgrounds)
-  success             {c['success']}    → semantic green
-  warn                {c['warn']}    → semantic amber
-  error               {c['error']}    → semantic red
-  chart sequence (use in this order): origin-chart-1..8 → {', '.join(c['chart'])}
-
-Typography:
-  font-sans (Inter, system-ui fallbacks). font-mono for IDs, hashes, code.
-  page title: text-lg font-semibold tracking-tight
-  section labels: text-[11px] font-medium uppercase tracking-[0.06em] text-origin-text-muted
-  body: text-[13px] leading-relaxed
-  numbers / KPIs: tabular-nums
-
-Layout:
-  page wrapper: max-w-[640px] mx-auto p-6 (or wider only when a chart needs it)
-  cards: bg-origin-surface border border-origin-border rounded-lg p-5
-  card spacing: gap-4
-  no gradients, no glassmorphism, no drop-shadows on text
-  density tight, generous whitespace between groups, no decorative chrome
-
-Charts (Recharts):
-  axis stroke: {c['border']}, axis tick text: text-origin-text-dim
-  gridlines: stroke {c['border']} at opacity ~0.6, dashed (strokeDasharray="3 3")
-  series colors: origin-chart-1, origin-chart-2, ... in order
-  Line: strokeWidth=2, dot=false, type="monotone"
-  Bar: radius=[4,4,0,0]
-  Tooltip: contentStyle backgroundColor: {c['surface']}, border: {c['border']}, color: {c['text']}
-  Legend: only when series > 1; small, muted
-  No 3D, no shadows, no animations beyond default Recharts ease
-"""
-
-
-def base_stylesheet() -> str:
-    """Tiny CSS reset + base body styles for the iframe sandbox."""
-    c = ORIGIN_TOKENS["color"]
-    t = ORIGIN_TOKENS["type"]
-    return f"""\
+:root {{
+  --color-bone: {n['bone']};
+  --color-surface: {n['surface']};
+  --color-muted: {n['muted']};
+  --color-slate: {n['slate']};
+  --color-carbon: {n['carbon']};
+  --color-obsidian: {n['obsidian']};
+  --color-jade: {a['jade']};
+  --color-ember: {a['ember']};
+  --color-iris: {a['iris']};
+  --color-bronze: {a['bronze']};
+  --color-border: {i['border']};
+  --color-border-strong: {i['border_strong']};
+  --color-selection: {i['selection']};
+  --color-active: {s['active']};
+  --color-idle: {s['idle']};
+  --color-warning: {s['warning']};
+  --color-danger: {s['danger']};
+  --color-viz-violet: {v['violet']};
+  --color-viz-blue: {v['blue']};
+  --color-viz-green: {v['green']};
+  --color-viz-yellow: {v['yellow']};
+  --color-viz-orange: {v['orange']};
+  --font-display: "Fira Code", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+}}
 html, body {{
   margin: 0;
-  background: {c['bg']};
-  color: {c['text']};
-  font-family: {t['family']};
-  font-size: 13px;
-  line-height: 1.45;
+  background: var(--color-bone);
+  color: var(--color-carbon);
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }}
 * {{ box-sizing: border-box; }}
 .tabular-nums {{ font-variant-numeric: tabular-nums; }}
+::selection {{ background: var(--color-selection); color: var(--color-carbon); }}
 """
+
+
+def design_brief_for_agent() -> str:
+    """Compact, prescriptive Origin brief baked into the agent system prompt."""
+    n = ORIGIN_TOKENS["neutral"]
+    a = ORIGIN_TOKENS["accent"]
+    i = ORIGIN_TOKENS["interactive"]
+    s = ORIGIN_TOKENS["status"]
+    v = ORIGIN_TOKENS["viz"]
+    return f"""\
+ORIGIN DESIGN SYSTEM — warm-neutral, code-native, light-theme.
+Origin is the agent-observability platform. Tagline: "Make digital labor observable."
+Tone: precise, technical, plain-spoken. Confident, never hyped.
+
+PALETTE (Tailwind classes are preconfigured):
+  Neutrals (90% of real estate):
+    bone {n['bone']}        → bg-bone (page background)
+    surface {n['surface']}     → bg-surface (cards, elevated)
+    muted {n['muted']}       → text-muted (de-emphasised)
+    slate {n['slate']}       → text-slate (secondary text)
+    carbon {n['carbon']}      → text-carbon (primary text)
+    obsidian {n['obsidian']}    → bg-obsidian (inverse / dark CTA bands)
+  Hairlines (1px borders only):
+    hairline {i['border']}     → border-hairline
+    hairline-strong {i['border_strong']} → border-hairline-strong (table rules, emphasis)
+  Accents (USE ONCE PER MOMENT — a tag, a callout, a section rule. NEVER as ambient bg):
+    jade {a['jade']}        → text-jade
+    ember {a['ember']}       → text-ember (eyebrow labels)
+    iris {a['iris']}        → text-iris
+    bronze {a['bronze']}      → text-bronze
+  Status (FUNCTIONAL ONLY — system state, never decorative):
+    active {s['active']}      → text-active / bg-active (active dot)
+    idle {s['idle']}        → text-idle
+    warning {s['warning']}     → text-warning
+    danger {s['danger']}      → text-danger
+  Viz palette (CHART MARKS ONLY — never UI chrome). Use in this order:
+    viz.violet {v['violet']}  → bg-viz-violet / fill="#8B5CF6"
+    viz.blue   {v['blue']}    → bg-viz-blue
+    viz.green  {v['green']}   → bg-viz-green
+    viz.yellow {v['yellow']}  → bg-viz-yellow
+    viz.orange {v['orange']}  → bg-viz-orange
+
+TYPOGRAPHY (two families, NO exceptions):
+  Fira Code (font-display / font-mono): all display, headings, subheads,
+  labels, metadata, timestamps, counts, identifiers.
+  Inter (font-body / font-sans): body copy, dense UI text.
+  Display tracking: -0.03em (-0.04em at the largest sizes).
+  Subhead tracking: +0.02em.
+  Uppercase labels: +0.08em (use .tracking-label).
+  Body NEVER below 14 px (text-sm = 14px is the floor).
+  Numbers ALWAYS tabular-nums. Comma thousands separators ("1,247").
+  Units spaced from numbers ("80 ms", "2 s ago").
+
+CASING:
+  Sentence case for body and most UI labels.
+  Title Case for display headlines ("Findings By Status").
+  ALL CAPS + tracking-label only for status / metadata labels
+  ("STATUS · OPEN", "LAST SEEN", "SESSIONS"). Never ALL CAPS for full sentences.
+  Periods at the end of every full sentence — including in cards.
+
+PUNCTUATION:
+  En-dash (–) for ranges. Em-dash (—) for asides.
+  Middle dot (·) as a metadata separator ("STATUS · OPEN · 14:02").
+
+NUMBERS / DATA:
+  Tabular figures, comma thousands, spaced units.
+  Time absolute when precise ("14:02:08.121", monospaced),
+  relative when approximate ("2 s ago").
+
+LAYOUT:
+  Background: bg-bone almost always. bg-obsidian only for stats bands / dark CTAs.
+  Cards: bg-surface border border-hairline rounded-lg shadow-sm p-6 (24px) or p-8 (32px).
+  An "eyebrow" label sits at the top of cards (uppercase Fira Code, ember or slate),
+  not a heavy header bar. Outer padding 24–32 px; data-table inner padding 12–16 px.
+  Air, not noise. Generous whitespace between groups.
+
+VISUAL TEXTURE: the only allowed texture is a 1px hairline rule. NO gradients, NO patterns,
+  NO drop shadows on text, NO glassmorphism, NO full-bleed photography, NO inner glows.
+
+CORNER RADII: 6 px on inputs/buttons (rounded-md), 10 px on cards (rounded-lg),
+  16 px on hero cards (rounded-xl), pill on tags. Nothing rounder than pill.
+
+ICONOGRAPHY: Lucide only, stroke 1.5, round caps & joins. No emoji. No unicode glyphs as icons
+  except middle dot (·) as a metadata separator. To use Lucide in a CDN-loaded prototype:
+    <img src="https://unpkg.com/lucide-static@latest/icons/<name>.svg" width="16" height="16"
+         style="filter: invert(15%) sepia(8%) saturate(467%) hue-rotate(354deg) brightness(96%) contrast(91%);" />
+  Default stroke color is carbon (#33302E); use slate for de-emphasis, status colors for system state.
+
+CHART RULES (Recharts):
+  - Wrap in <ResponsiveContainer width="100%" height={{H}}>
+  - CartesianGrid stroke="#E6D9CE" strokeDasharray="3 3"
+  - XAxis/YAxis stroke="#E6D9CE", tick={{{{ fill: "#66605C", fontSize: 12, fontFamily: "Fira Code" }}}}
+  - Tooltip contentStyle={{{{ backgroundColor: "#FFFCF8", border: "1px solid #E6D9CE",
+      color: "#33302E", borderRadius: 6, fontFamily: "Inter", fontSize: 13 }}}}
+  - Series colors in order: #8B5CF6, #3B82F6, #10B981, #FACC15, #F97316
+  - Line: strokeWidth=2, dot=false, type="monotone"
+  - Bar: radius=[4,4,0,0]
+  - Legend only when series > 1, small and muted (text-slate text-[12px])
+  - No 3D, no shadows, no animations beyond Recharts default.
+
+VOICE / COPY:
+  Plain-spoken, technical, declarative. Verbs concrete (capture, query, surface, flag).
+  Never aspirational adjectives. No exclamation points. No emoji.
+  Third-person product-as-subject for descriptions ("Origin captures…").
+  Second person for action prompts ("View trace", "Connect endpoint").
+"""
+
+
+# Backwards-compatible alias retained for older callers.
+def base_stylesheet() -> str:
+    return origin_base_css()

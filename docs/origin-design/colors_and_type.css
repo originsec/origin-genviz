@@ -1,0 +1,284 @@
+/* =============================================================
+   Origin — Colors & Type
+   The semantic era of agent observability.
+
+   Load Fira Code + Inter from Google Fonts in your <head>:
+   <link rel="preconnect" href="https://fonts.googleapis.com">
+   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+   <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+   ============================================================= */
+
+:root {
+  /* ---------- Neutrals (warm, ivory → near-black) ---------- */
+  --color-bone:           #FFF1E5;
+  --color-surface:        #FFFCF8;
+  --color-muted:          #99918A;
+  --color-slate:          #66605C;
+  --color-carbon:         #33302E;
+  --color-obsidian:       #1A1614;
+
+  /* ---------- Accents (used sparingly) ---------- */
+  --color-jade:           #4E848C;
+  --color-ember:          #903C2E;
+  --color-iris:           #6B5FA8;
+  --color-bronze:         #97753E;
+
+  /* ---------- Interactive (borders, dividers, selection) ---------- */
+  --color-border:         #E6D9CE;
+  --color-border-strong:  #C4B8AC;
+  --color-selection:      #EDD9C4;
+
+  /* ---------- Status (system state — never decorative) ---------- */
+  --color-active:         #22C55E;
+  --color-idle:           #C0B6AE;
+  --color-warning:        #F59E0B;
+  --color-danger:         #C84B2C;
+
+  /* ---------- Data Visualisation (charts only) ---------- */
+  --color-viz-violet:     #8B5CF6;
+  --color-viz-blue:       #3B82F6;
+  --color-viz-green:      #10B981;
+  --color-viz-yellow:     #FACC15;
+  --color-viz-orange:     #F97316;
+
+  /* ---------- Internal Comms (employee-facing only) ---------- */
+  --color-ic-blush:        #DCA1A1;
+  --color-ic-lavender:     #CCC3D1;
+  --color-ic-sage:         #9EB091;
+  --color-ic-cream:        #FFF1E5;
+  --color-ic-teal:         #37868D;
+  --color-ic-steel:        #7C88A2;
+  --color-ic-light-steel:  #96ACBE;
+  --color-ic-off-white:    #FFF8F2;
+  --color-ic-ice:          #B4C5CB;
+
+  /* ---------- Semantic — surfaces ---------- */
+  --bg:                   var(--color-bone);
+  --bg-elevated:          var(--color-surface);
+  --bg-inverse:           var(--color-obsidian);
+
+  /* ---------- Semantic — foreground ---------- */
+  --fg-primary:           var(--color-carbon);
+  --fg-secondary:         var(--color-slate);
+  --fg-muted:             var(--color-muted);
+  --fg-inverse:           var(--color-bone);
+
+  /* ---------- Semantic — borders ---------- */
+  --border:               var(--color-border);
+  --border-strong:        var(--color-border-strong);
+
+  /* ---------- Type families ---------- */
+  --font-display:         "Fira Code", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-mono:            "Fira Code", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-body:            "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+
+  /* ---------- Type scale (rem, base 16) ---------- */
+  --fs-display-xl:        clamp(3.5rem, 7vw, 6rem);     /* 56–96 — hero */
+  --fs-display-lg:        clamp(2.75rem, 5vw, 4.5rem);  /* 44–72 */
+  --fs-display:           clamp(2rem, 3.5vw, 3rem);     /* 32–48 */
+  --fs-h1:                2rem;        /* 32 */
+  --fs-h2:                1.5rem;      /* 24 */
+  --fs-h3:                1.25rem;     /* 20 */
+  --fs-h4:                1.0625rem;   /* 17 */
+  --fs-body:              1rem;        /* 16 */
+  --fs-body-sm:           0.9375rem;   /* 15 */
+  --fs-caption:           0.875rem;    /* 14 — minimum body */
+  --fs-label:             0.75rem;     /* 12 — uppercase labels only */
+
+  /* ---------- Line height ---------- */
+  --lh-display:           1.05;
+  --lh-tight:             1.15;
+  --lh-snug:              1.3;
+  --lh-body:              1.5;
+  --lh-loose:             1.65;
+
+  /* ---------- Tracking ---------- */
+  --tr-display:           -0.03em;     /* −3% — Fira Code display */
+  --tr-display-tight:     -0.04em;     /* −4% — at largest sizes */
+  --tr-subhead:           0.02em;      /* +2% — Fira Code subheads */
+  --tr-label:             0.08em;      /* +8% — uppercase labels */
+  --tr-body:              0;
+
+  /* ---------- Weight ---------- */
+  --fw-light:             300;
+  --fw-regular:           400;
+  --fw-medium:            500;
+  --fw-semibold:          600;
+  --fw-bold:              700;
+  --fw-extrabold:         800;
+
+  /* ---------- Spacing (4px base) ---------- */
+  --space-0:   0;
+  --space-1:   4px;
+  --space-2:   8px;
+  --space-3:   12px;
+  --space-4:   16px;
+  --space-5:   20px;
+  --space-6:   24px;
+  --space-8:   32px;
+  --space-10:  40px;
+  --space-12:  48px;
+  --space-16:  64px;
+  --space-20:  80px;
+  --space-24:  96px;
+  --space-32:  128px;
+
+  /* ---------- Radii ---------- */
+  --radius-xs:  2px;
+  --radius-sm:  4px;
+  --radius-md:  6px;
+  --radius-lg:  10px;
+  --radius-xl:  16px;
+  --radius-pill: 999px;
+
+  /* ---------- Shadows (warm-tinted, low-key) ---------- */
+  --shadow-xs:  0 1px 0 rgba(26, 22, 20, 0.04);
+  --shadow-sm:  0 1px 2px rgba(26, 22, 20, 0.06), 0 1px 1px rgba(26, 22, 20, 0.04);
+  --shadow-md:  0 4px 12px rgba(26, 22, 20, 0.06), 0 1px 2px rgba(26, 22, 20, 0.04);
+  --shadow-lg:  0 12px 28px rgba(26, 22, 20, 0.08), 0 2px 4px rgba(26, 22, 20, 0.05);
+  --shadow-xl:  0 24px 60px rgba(26, 22, 20, 0.12), 0 4px 8px rgba(26, 22, 20, 0.06);
+  --shadow-inset: inset 0 1px 0 rgba(255, 252, 248, 0.6);
+
+  /* ---------- Motion ---------- */
+  --ease-out:    cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.3, 0.5, 1);
+  --dur-1:       120ms;
+  --dur-2:       180ms;
+  --dur-3:       260ms;
+  --dur-4:       420ms;
+
+  /* ---------- Layout ---------- */
+  --container:    1200px;
+  --container-narrow: 880px;
+  --gutter:       clamp(20px, 4vw, 48px);
+}
+
+/* ---------- Dark theme (defined; not previewed yet) ---------- */
+[data-theme="dark"] {
+  --color-bone:          #1A1614;
+  --color-surface:       #201C1A;
+  --color-muted:         #66605C;
+  --color-slate:         #C4B8AC;
+  --color-carbon:        #F6E9D8;
+  --color-obsidian:      #0A0908;
+
+  --color-jade:          #5FA8B0;
+  --color-ember:         #B54E3E;
+  --color-iris:          #8A80C4;
+  --color-bronze:        #C49A52;
+
+  --color-border:        #2E2A27;
+  --color-border-strong: #4A4440;
+  --color-selection:     #3A2E24;
+
+  --color-active:        #34D870;
+  --color-idle:          #4A4440;
+  --color-warning:       #FBB02A;
+  --color-danger:        #D9603A;
+
+  --bg:                  var(--color-bone);
+  --bg-elevated:         var(--color-surface);
+  --bg-inverse:          var(--color-obsidian);
+  --fg-primary:          var(--color-carbon);
+  --fg-secondary:        var(--color-slate);
+  --fg-muted:            var(--color-muted);
+}
+
+/* =============================================================
+   ELEMENT DEFAULTS — apply this stylesheet and base type works
+   ============================================================= */
+
+html {
+  font-size: 16px;
+  background: var(--bg);
+  color: var(--fg-primary);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+}
+
+::selection { background: var(--color-selection); color: var(--color-carbon); }
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  color: var(--fg-primary);
+  margin: 0 0 0.5em;
+  text-wrap: balance;
+}
+
+h1 {
+  font-size: var(--fs-h1);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tr-display);
+}
+h2 {
+  font-size: var(--fs-h2);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-snug);
+  letter-spacing: -0.02em;
+}
+h3 {
+  font-size: var(--fs-h3);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-snug);
+  letter-spacing: -0.01em;
+}
+h4 {
+  font-size: var(--fs-h4);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-snug);
+  letter-spacing: 0;
+}
+
+p {
+  margin: 0 0 1em;
+  text-wrap: pretty;
+  max-width: 68ch;
+}
+
+small { font-size: var(--fs-caption); color: var(--fg-secondary); }
+
+code, kbd, pre, samp {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+a {
+  color: var(--fg-primary);
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 0.2em;
+  transition: text-decoration-color var(--dur-2) var(--ease-out);
+}
+a:hover { text-decoration-color: var(--color-carbon); }
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: var(--space-8) 0;
+}
+
+/* =============================================================
+   UTILITY CLASSES
+   ============================================================= */
+
+.t-display     { font-family: var(--font-display); font-weight: var(--fw-bold); letter-spacing: var(--tr-display); line-height: var(--lh-display); }
+.t-display-xl  { font-size: var(--fs-display-xl); letter-spacing: var(--tr-display-tight); }
+.t-display-lg  { font-size: var(--fs-display-lg); }
+.t-subhead     { font-family: var(--font-display); font-weight: var(--fw-semibold); letter-spacing: var(--tr-subhead); }
+.t-body        { font-family: var(--font-body); font-weight: var(--fw-regular); line-height: var(--lh-body); }
+.t-mono        { font-family: var(--font-mono); }
+.t-label       { font-family: var(--font-body); font-weight: var(--fw-semibold); font-size: var(--fs-label); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--fg-secondary); }
+.t-eyebrow     { font-family: var(--font-display); font-weight: var(--fw-medium); font-size: var(--fs-caption); letter-spacing: var(--tr-subhead); color: var(--color-ember); text-transform: uppercase; }
+
+.fg-primary   { color: var(--fg-primary); }
+.fg-secondary { color: var(--fg-secondary); }
+.fg-muted     { color: var(--fg-muted); }

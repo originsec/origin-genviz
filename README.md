@@ -102,6 +102,19 @@ variables in the widget.
 To re-skin: edit `src/origin_genviz/design_tokens.py`. Changes take
 effect on the next tool call.
 
+The canonical Origin design system reference lives in `docs/origin-design/`:
+
+```
+docs/origin-design/
+├── README.md                 ← full skill spec (voice, palette, components)
+├── colors_and_type.css       ← canonical token CSS (source of truth)
+└── assets/
+    └── logo-origin-wordmark.svg
+```
+
+`design_tokens.py` is kept in sync with `colors_and_type.css`. If you
+update one, update the other.
+
 ## Layout
 
 ```
@@ -111,6 +124,14 @@ src/origin_genviz/
 ├── upstream.py        streamable-http client to origin-staging
 ├── auth.py            reads ~/.claude/.credentials.json
 ├── viz_agent.py       Cerebras call + JSON parse
-├── design_tokens.py   Origin palette, typography, base stylesheet
+├── design_tokens.py   Origin palette, typography, Tailwind config
 └── config.py          env-driven Config
+
+assets/
+└── logo-origin-wordmark.svg
+
+docs/origin-design/    canonical design system reference
+├── README.md
+├── colors_and_type.css
+└── assets/logo-origin-wordmark.svg
 ```
