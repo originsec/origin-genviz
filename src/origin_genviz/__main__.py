@@ -8,12 +8,36 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+from pathlib import Path
 
 import anyio
 
 from .config import Config
 from .oauth import LoginRequiredError, cmd_login, cmd_logout, cmd_status
 from .server import run as serve_run
+
+
+def _load_dotenv_if_present() -> None:
+    """Load .env from the project root before reading config.
+
+    Goose / Claude Desktop / etc. typically spawn the proxy with their own
+    cwd, not the project's. Look at the package's parent dirs and at cwd
+    so a stand-alone `.env` next to pyproject.toml is picked up regardless
+    of how the process was launched. Existing env vars always win.
+    """
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        return
+
+    candidates = [
+        Path(__file__).resolve().parent.parent.parent / ".env",  # repo root
+        Path.cwd() / ".env",
+    ]
+    for path in candidates:
+        if path.is_file():
+            load_dotenv(path, override=False)
+            return
 
 
 def _setup_logging(level: str) -> None:
@@ -38,6 +62,7 @@ def main() -> None:
 
     args = parser.parse_args()
     cmd = args.cmd or "serve"
+    _load_dotenv_if_present()
     config = Config.from_env()
 
     if cmd == "logout":
