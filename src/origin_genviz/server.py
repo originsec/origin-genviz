@@ -27,9 +27,13 @@ log = logging.getLogger(__name__)
 
 SERVER_NAME = "origin-genviz"
 SERVER_VERSION = "0.1.0"
-# Canonical MCP Apps / mcp-ui mime type. Clients that don't recognize the
-# `;profile=mcp-app` parameter still render the resource as plain HTML.
-UI_MIME = "text/html;profile=mcp-app"
+# Plain "text/html" is what the deployed mcp-ui client SDK (e.g. goose
+# pins @mcp-ui/client@6.1.0) does exact-string-matches against. The newer
+# "text/html;profile=mcp-app" form (proposed MCP Apps standard) is what
+# the SDK on GitHub HEAD looks for, but isn't yet shipped in real clients
+# — sending it produces "Unsupported resource type." in goose. Plain
+# text/html is what every renderer supports today.
+UI_MIME = "text/html"
 
 
 def _extract_text(content_blocks: list[types.ContentBlock]) -> str:
