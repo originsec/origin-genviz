@@ -60,12 +60,217 @@ YES:
   - 3+ comparable numeric values (bars, KPI grids)
   - Structured records that benefit from a styled detail card with
     metadata rows
+  - A small set of headline numbers (a single row of KPI tiles is a
+    perfectly good "visualization" — sometimes the right one)
 
 NO:
   - Simple acks ("ok", "deleted", "204"), single short strings
   - Plain prose / instructions / freeform text
   - Errors or isError=true results
   - Empty / trivially small data (fewer than ~2 useful fields)
+
+# CHART / LAYOUT TYPE — A FULL MENU
+
+There is **no default**. Look at the data and pick whatever reveals it
+best. The full toolbox below is all fair game — choose freely:
+
+- **KPI tile / KPI grid** (no chart at all). One or a few headline
+  scalars — count, total, percentage, latency p95. 1–4 tiles in
+  `grid-cols-2` / `grid-cols-3` / `grid-cols-4`. Eyebrow + big
+  tabular-nums value in font-display + optional unit/delta. Often
+  the cleanest visualization for "what's the number?" results.
+
+- **LineChart / AreaChart** for time series. Line for 1–2 series,
+  Area (soft fill) when emphasizing volume or cumulative shape.
+  Multi-series: stack or overlay.
+
+- **Vertical BarChart** for discrete buckets, short categorical
+  axes, distributions/histograms, time buckets where the bucket
+  boundaries matter more than continuity.
+
+- **Horizontal BarChart** for rankings with variable-length labels
+  or many categories where the names need room to breathe.
+
+- **PieChart / Donut** (PieChart with `innerRadius`) for parts of
+  a whole — proportions of a single total. Best with 2–6 slices.
+  Always show the values alongside (legend or labels).
+
+- **ScatterChart** for two numeric variables — correlation,
+  anomalies, clusters.
+
+- **RadarChart** for a small set of comparable dimensions across
+  one or two entities (capability profile, score breakdown).
+
+- **Stacked or grouped BarChart** for category-by-category compare
+  with sub-segments.
+
+- **Sparkline** (small inline LineChart, no axes) inside a KPI tile,
+  table cell, or detail card to give a number a trend without
+  taking real estate.
+
+- **Heatmap** (a CSS grid of color-graded cells) for two-dimensional
+  density — hour-of-day × day-of-week, agent × tool. Use the viz
+  palette for intensity steps; never status colors.
+
+- **Progress / meter bar** (a horizontal hairline track with a
+  filled portion) for a percentage of a target.
+
+- **Table** with optional inline sparklines, status badges, and
+  trend deltas in cells. Clean tables beat forced charts for
+  record-shaped data.
+
+- **Detail card** for a single entity — bigger headline, metadata
+  rows underneath, optional inline chart or sparkline.
+
+- **Composite**: combine any of the above. A row of KPI tiles above
+  a chart. A chart in 2 of 3 grid columns with a top-N list in
+  the third. A donut beside a legend-table that doubles as the
+  data. A heatmap with a side bar of marginal totals.
+
+Mix freely. The right answer is whatever makes the data legible.
+
+# LAYOUT PATTERNS — VARY THE COMPOSITION
+
+Don't render one card with one chart every time. Use these as a
+menu and pick whichever fits the data:
+
+- **Headline strip**: a single row, 2–4 KPI tiles, no chart. Each
+  tile: small eyebrow + tabular-nums number + tiny unit/delta.
+  Best for "summary at a glance" results.
+
+- **Stat strip + chart**: top row of 3 small KPI tiles (text-[18px]
+  numbers, no card padding heroics), then a single chart below.
+  Tells the reader the takeaway numbers and lets them see the
+  shape.
+
+- **Chart + companion list**: 2-column grid; chart in col 1 (or
+  spans 2 of 3), a small ranked list / mini-table in the remaining
+  col. Use when both shape and the actual top items matter.
+
+- **Mini-card grid**: `grid-cols-2` or `grid-cols-3` of small cards
+  (p-3, no shadow, just border-hairline), one per entity, each
+  showing 2–3 fields. Good for 4–9 records you want skimmable at
+  once. Each mini-card is compact: ~120–160 px tall.
+
+- **Section stack**: a single card with multiple internal sections
+  separated by `border-hairline` rules — e.g. an eyebrow + headline
+  + supporting paragraph at top, then a chart, then a small
+  metadata footer ("Filtered: 2026-05-06 · 1,247 rows").
+
+- **Table-only**: when the data is fundamentally tabular (events,
+  logs, findings) and a chart would distort it. Use the Table
+  component spec in COMPONENTS.
+
+- **Detail card**: hero card for a single entity — bigger headline
+  (text-[18px]), 4–8 metadata rows underneath, optional small
+  inline chart or sparkline.
+
+Vary card sizes and gaps within the 520 px max-width: mini-cards
+at p-3, standard cards at p-4 or p-5, detail/hero card at p-5 or
+p-6 (no bigger).
+
+# INTERACTIVITY — USE IT WHEN IT EARNS ITS KEEP
+
+The widget is a real React app: full client-state interactivity is on
+the table whenever it makes the data more legible. You have free use of
+`useState`, `useMemo`, `useEffect`, event handlers, and any pure-React
+UI pattern. Reach for these whenever the dataset is bigger than what
+fits comfortably in one glance, or when the user would naturally want
+to drill in:
+
+- **Collapsible / expandable sections**. Long tables, nested records,
+  or a "details" pane on a card. A small chevron button (Lucide
+  `chevron-down` / `chevron-right`) toggles `useState` open/closed.
+  Default to collapsed when the section is supplemental.
+
+- **Expandable table rows**. Clicking a row reveals an inline detail
+  panel below it (full record, sub-table, or sparkline). Use a
+  controlled `expandedId` state.
+
+- **Filter chips / toggle pills**. Above a chart or table, render a
+  row of small `rounded-pill` buttons (border-hairline default,
+  bg-selection when active) that filter the dataset by category,
+  status, or time bucket. Filters drive a `useMemo` over `DATA`.
+
+- **Search field**. A single `<input>` with placeholder, styled as
+  `border border-hairline rounded-md px-3 py-1.5 text-[13px]` —
+  filters the table or list as you type. Use case-insensitive
+  substring match unless the data suggests otherwise.
+
+- **Sortable table columns**. Header cells become buttons; clicking
+  toggles asc/desc. Show the active sort column with a small
+  Lucide `arrow-up` / `arrow-down` next to the label.
+
+- **Tabs**. Two or three `<button>`s acting as tabs to switch between
+  views of the same data (e.g. "By agent" / "By tool" / "By hour").
+  Active tab: `text-carbon border-b-2 border-carbon`; inactive:
+  `text-slate`.
+
+- **Range / time-window selector**. A small segmented control
+  ("24H", "7D", "30D") that re-buckets the data via `useMemo`.
+
+- **Hover details (mouseovers)**.
+    - Recharts `<Tooltip>` for chart hovers — already styled in the
+      CHART RULES.
+    - For non-chart hovers, use `onMouseEnter` / `onMouseLeave` plus
+      a small absolute-positioned `<div>`, OR a CSS-only `group` /
+      `group-hover:` pattern via Tailwind. Tooltip surface should
+      match the Recharts tooltip styling for consistency.
+
+- **Click-to-copy**. For IDs, hashes, traces — small copy button
+  (Lucide `copy`) that uses no network, just `document.execCommand`
+  or the in-page Clipboard API call.
+
+- **Pagination / "show more"**. For long lists, render the first N
+  rows and a `text-slate text-[12px]` button "Show 12 more" that
+  bumps a `visibleCount` state.
+
+- **Drill-down via click**. Selecting a chart segment / bar /
+  table row updates a sibling detail panel. Use Recharts `onClick`
+  on the series, or row-level click handlers.
+
+Interactivity rules:
+
+- All interactive elements MUST be `<button>` or `<input>` (never
+  `<div onClick>`). Add `aria-label` to icon-only buttons. Visible
+  focus rings (`focus:outline-none focus:ring-2 focus:ring-carbon/20
+  focus:ring-offset-1`).
+- State drives `useMemo` selectors over `DATA`; do not mutate `DATA`
+  itself.
+- No transitions / animations beyond what Recharts ships with — keep
+  state changes instant and crisp.
+- Don't add interactivity for its own sake. A 4-row dataset doesn't
+  need search. A single chart doesn't need tabs. Pick the controls
+  that actually unlock the data.
+
+# AVAILABLE LIBRARIES — ALREADY LOADED, NOTHING ELSE NEEDED
+
+Every capability above is reachable with the CDN scripts below; do
+NOT add or request any other library:
+
+- **React 18** + **ReactDOM 18**: full hooks (`useState`, `useMemo`,
+  `useEffect`, `useRef`, `useCallback`), event handlers, refs.
+- **Babel standalone**: in-browser JSX, no build step.
+- **Tailwind CDN**: full utility set including responsive prefixes,
+  `group`/`group-hover`, `peer`/`peer-checked`, `focus`/`focus-visible`,
+  `data-*` selectors, arbitrary values (`text-[13px]`, `w-[420px]`).
+  Origin tokens are pre-extended (bone, surface, carbon, slate,
+  muted, hairline, ember, jade, iris, bronze, viz.* etc).
+- **Recharts 2** (full UMD): LineChart, BarChart, AreaChart, PieChart,
+  ScatterChart, RadarChart, RadialBarChart, ComposedChart, Treemap,
+  Sankey + supporting axes/components: XAxis, YAxis, ZAxis, PolarGrid,
+  PolarAngleAxis, PolarRadiusAxis, RadialBar, CartesianGrid, Tooltip,
+  Legend, ResponsiveContainer, Line, Bar, Area, Pie, Cell, Scatter,
+  Radar, ReferenceLine, ReferenceArea, Brush, LabelList. All of these
+  destructure from the global `Recharts` object.
+- **Lucide static SVG** (per-icon URL): any icon name from the Lucide
+  set, loaded as `<img src="https://unpkg.com/lucide-static@latest/icons/<name>.svg">`.
+- Native browser APIs: Clipboard, basic DOM, CSS Grid / Flex,
+  `Intl.NumberFormat`, `Intl.DateTimeFormat`. Use freely.
+
+If a chart type or interaction isn't covered above, do it with plain
+React + Tailwind + DOM — heatmaps, progress bars, stat strips, custom
+tooltips, expandable rows, etc. all work without extra dependencies.
 
 # OUTPUT CONTRACT (STRICT JSON, NO PROSE, NO FENCES)
 
@@ -106,11 +311,20 @@ Required document shape (mandatory — no deviations):
 <body class="bg-bone text-carbon font-body antialiased text-[13px] leading-snug">
   <div id="root"></div>
   <script type="text/babel" data-presets="react">
-    const {{ useState, useMemo, useEffect }} = React;
-    // If using Recharts (Recharts global is loaded above):
-    // const {{ LineChart, BarChart, AreaChart, PieChart, XAxis, YAxis,
-    //         CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-    //         Line, Bar, Area, Pie, Cell }} = Recharts;
+    const {{ useState, useMemo, useEffect, useRef, useCallback }} = React;
+    // Destructure only what you actually use. The Recharts global is
+    // loaded above and exposes (among others):
+    //   Containers: LineChart, BarChart, AreaChart, PieChart,
+    //               ScatterChart, RadarChart, RadialBarChart,
+    //               ComposedChart, Treemap, Sankey, ResponsiveContainer
+    //   Axes/grid:  XAxis, YAxis, ZAxis, CartesianGrid, PolarGrid,
+    //               PolarAngleAxis, PolarRadiusAxis
+    //   Series:     Line, Bar, Area, Pie, Cell, Scatter, Radar,
+    //               RadialBar
+    //   Decoration: Tooltip, Legend, ReferenceLine, ReferenceArea,
+    //               Brush, LabelList
+    // e.g.
+    //   const {{ BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer }} = Recharts;
 
     const DATA = /* inline relevant data from the tool result as a JS literal */;
 
