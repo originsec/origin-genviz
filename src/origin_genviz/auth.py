@@ -39,7 +39,11 @@ class _CredEntry:
     expires_at_ms: float | None  # epoch ms; None if unknown
 
 
-def _read_cred_entry(credentials_path: Path, server_name: str) -> _CredEntry:
+def _read_cred_entry(
+    credentials_path: Path,
+    server_name: str,
+    server_url: str | None = None,
+) -> _CredEntry:
     if not credentials_path.exists():
         raise AuthError(
             f"Credentials file not found at {credentials_path}. "
@@ -53,20 +57,69 @@ def _read_cred_entry(credentials_path: Path, server_name: str) -> _CredEntry:
         raise AuthError(f"Could not parse {credentials_path}: {e}") from e
 
     mcp_oauth = data.get("mcpOAuth") or {}
-    matched: dict | None = None
+
+    # Strategy: prefer URL match (URL is canonical), then name match,
+    # then key-prefix match. Among candidates, prefer the most recently
+    # issued (highest expiresAt). This handles Claude Code rewriting the
+    # entry under a new name like "claude.ai origin-staging" after re-auth.
+    candidates: list[tuple[int, dict, str]] = []  # (priority, entry, why)
+    norm_url = (server_url or "").rstrip("/") if server_url else ""
+
+    def name_matches(s: str | None) -> bool:
+        if not isinstance(s, str):
+            return False
+        s_lo = s.lower()
+        n_lo = server_name.lower()
+        return s_lo == n_lo or n_lo in s_lo
+
     for key, entry in mcp_oauth.items():
         if not isinstance(entry, dict):
             continue
-        if entry.get("serverName") == server_name:
-            matched = entry
-            break
-        if matched is None and isinstance(key, str) and key.startswith(f"{server_name}|"):
-            matched = entry
-    if not matched:
+        entry_url = (entry.get("serverUrl") or "").rstrip("/")
+        if norm_url and entry_url == norm_url:
+            candidates.append((3, entry, f"url={entry_url}"))
+            continue
+        if name_matches(entry.get("serverName")):
+            candidates.append((2, entry, f"name={entry.get('serverName')!r}"))
+            continue
+        if isinstance(key, str) and name_matches(key.split("|", 1)[0]):
+            candidates.append((1, entry, f"key={key!r}"))
+
+    if not candidates:
+        available = []
+        for key, entry in mcp_oauth.items():
+            if isinstance(entry, dict):
+                available.append(
+                    f"  {key!r}: serverName={entry.get('serverName')!r}, "
+                    f"serverUrl={entry.get('serverUrl')!r}"
+                )
+        avail_text = "\n".join(available) if available else "  (none)"
         raise AuthError(
-            f"No mcpOAuth entry for serverName={server_name!r} in {credentials_path}. "
+            f"No mcpOAuth entry matching serverName={server_name!r} or "
+            f"serverUrl={server_url!r} in {credentials_path}.\n"
+            f"Available entries:\n{avail_text}\n"
             "Authenticate the upstream MCP via Claude Code first."
         )
+
+    # Highest priority, then latest expiresAt within priority.
+    candidates.sort(
+        key=lambda c: (c[0], c[1].get("expiresAt") or 0),
+        reverse=True,
+    )
+    matched = candidates[0][1]
+    log.info(
+        "selected mcpOAuth entry via %s (expiresAt=%s)",
+        candidates[0][2],
+        matched.get("expiresAt"),
+    )
+    if log.isEnabledFor(logging.DEBUG):
+        for prio, entry, why in candidates:
+            log.debug(
+                "  candidate prio=%d via=%s expiresAt=%s",
+                prio,
+                why,
+                entry.get("expiresAt"),
+            )
 
     access_token = matched.get("accessToken")
     if not access_token:
@@ -123,9 +176,11 @@ class TokenManager:
         credentials_path: Path,
         server_name: str,
         override: str | None = None,
+        server_url: str | None = None,
     ) -> None:
         self._credentials_path = credentials_path
         self._server_name = server_name
+        self._server_url = server_url
         self._override = override
 
         self._lock = threading.Lock()
@@ -192,7 +247,9 @@ class TokenManager:
         return True
 
     def _reload_from_disk(self) -> None:
-        entry = _read_cred_entry(self._credentials_path, self._server_name)
+        entry = _read_cred_entry(
+            self._credentials_path, self._server_name, self._server_url
+        )
         self._cached_access_token = entry.access_token
         self._cached_expires_at_ms = entry.expires_at_ms
         self._cached_refresh_token = entry.refresh_token
@@ -255,5 +312,8 @@ def load_bearer_token(
     credentials_path: Path,
     server_name: str,
     override: str | None = None,
+    server_url: str | None = None,
 ) -> str:
-    return TokenManager(credentials_path, server_name, override).get_token()
+    return TokenManager(
+        credentials_path, server_name, override, server_url
+    ).get_token()

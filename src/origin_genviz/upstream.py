@@ -49,6 +49,7 @@ class Upstream:
             config.credentials_path,
             config.upstream_server_name,
             config.upstream_token_override,
+            server_url=config.upstream_url,
         )
 
     @asynccontextmanager
