@@ -18,6 +18,7 @@ from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
 
 from .config import Config
+from .oauth import LoginRequiredError
 from .upstream import Upstream
 from .viz_agent import VizAgent, VizDecision
 
@@ -77,12 +78,50 @@ def _make_ui_resource(tool_name: str, html: str, title: str | None) -> types.Emb
     )
 
 
+def _unwrap(exc: BaseException) -> BaseException:
+    """Walk ExceptionGroups / chains for a meaningful inner exception.
+
+    streamable-http opens its own anyio TaskGroup and re-raises errors as
+    `BaseExceptionGroup`s, which makes JSON-RPC error messages opaque
+    ("unhandled errors in a TaskGroup"). Surface the original where we can.
+    """
+    seen: set[int] = set()
+
+    def walk(e: BaseException) -> BaseException | None:
+        if id(e) in seen:
+            return None
+        seen.add(id(e))
+        if isinstance(e, LoginRequiredError):
+            return e
+        if isinstance(e, BaseExceptionGroup):
+            for sub in e.exceptions:
+                hit = walk(sub)
+                if hit is not None:
+                    return hit
+        for chained in (e.__cause__, e.__context__):
+            if chained is not None and chained is not e:
+                hit = walk(chained)
+                if hit is not None:
+                    return hit
+        return None
+
+    return walk(exc) or exc
+
+
 def build_server(config: Config, upstream: Upstream, agent: VizAgent) -> Server:
     server: Server = Server(SERVER_NAME, version=SERVER_VERSION)
 
     @server.list_tools()
     async def handle_list_tools() -> list[types.Tool]:
-        tools = await upstream.list_tools()
+        try:
+            tools = await upstream.list_tools()
+        except BaseException as e:
+            inner = _unwrap(e)
+            if isinstance(inner, LoginRequiredError):
+                # Re-raise as a regular RuntimeError so the framework
+                # converts it to a clean JSON-RPC error.
+                raise RuntimeError(str(inner)) from inner
+            raise
         # Pass through verbatim. The proxy advertises the upstream's exact
         # name/description/schema so callers see no behavioural difference.
         return list(tools)
@@ -96,13 +135,14 @@ def build_server(config: Config, upstream: Upstream, agent: VizAgent) -> Server:
 
         try:
             upstream_result = await upstream.call_tool(name, arguments)
-        except Exception as e:  # noqa: BLE001 — surface upstream failures as tool errors
+        except BaseException as e:  # noqa: BLE001
             log.exception("upstream tool call failed")
+            inner = _unwrap(e)
             err = types.CallToolResult(
                 content=[
                     types.TextContent(
                         type="text",
-                        text=f"origin-genviz: upstream call failed: {e}",
+                        text=f"origin-genviz: upstream call failed: {inner}",
                     )
                 ],
                 isError=True,

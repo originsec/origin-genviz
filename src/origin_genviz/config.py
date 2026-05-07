@@ -6,26 +6,38 @@ from pathlib import Path
 
 
 DEFAULT_UPSTREAM_URL = "https://mcp.staging.originhq.com/mcp"
-DEFAULT_UPSTREAM_NAME = "origin-staging"
-DEFAULT_CRED_PATH = Path.home() / ".claude" / ".credentials.json"
+DEFAULT_LOCAL_TOKEN_PATH = (
+    Path(os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config")))
+    / "origin-genviz"
+    / "credentials.json"
+)
 
 DEFAULT_CEREBRAS_BASE_URL = "https://api.cerebras.ai/v1"
 DEFAULT_CEREBRAS_MODEL = "zai-glm-4.7"
 DEFAULT_CEREBRAS_TEMPERATURE = 0.2
 
+DEFAULT_OAUTH_REDIRECT_PORT = 53217
+DEFAULT_OAUTH_LOGIN_TIMEOUT_S = 300.0
+
 
 @dataclass(frozen=True)
 class Config:
+    # Upstream MCP server
     upstream_url: str
-    upstream_server_name: str
-    credentials_path: Path
-    upstream_token_override: str | None
+    upstream_token_override: str | None  # short-circuits OAuth entirely
 
+    # Local OAuth state (this proxy's own credentials, NOT Claude Code's)
+    local_token_path: Path
+    oauth_redirect_port: int
+    oauth_login_timeout_s: float
+
+    # Cerebras
     cerebras_api_key: str | None
     cerebras_base_url: str
     cerebras_model: str
     cerebras_temperature: float
 
+    # Tuning
     request_timeout_s: float
     agent_timeout_s: float
     agent_max_input_chars: int
@@ -35,13 +47,20 @@ class Config:
     def from_env(cls) -> "Config":
         return cls(
             upstream_url=os.environ.get("ORIGIN_STAGING_URL", DEFAULT_UPSTREAM_URL),
-            upstream_server_name=os.environ.get(
-                "ORIGIN_STAGING_SERVER_NAME", DEFAULT_UPSTREAM_NAME
-            ),
-            credentials_path=Path(
-                os.environ.get("CLAUDE_CREDENTIALS_PATH", str(DEFAULT_CRED_PATH))
-            ).expanduser(),
             upstream_token_override=os.environ.get("ORIGIN_STAGING_TOKEN"),
+            local_token_path=Path(
+                os.environ.get(
+                    "ORIGIN_GENVIZ_TOKEN_PATH", str(DEFAULT_LOCAL_TOKEN_PATH)
+                )
+            ).expanduser(),
+            oauth_redirect_port=int(
+                os.environ.get("ORIGIN_GENVIZ_OAUTH_PORT", DEFAULT_OAUTH_REDIRECT_PORT)
+            ),
+            oauth_login_timeout_s=float(
+                os.environ.get(
+                    "ORIGIN_GENVIZ_OAUTH_TIMEOUT_S", DEFAULT_OAUTH_LOGIN_TIMEOUT_S
+                )
+            ),
             cerebras_api_key=os.environ.get("CEREBRAS_API_KEY"),
             cerebras_base_url=os.environ.get(
                 "CEREBRAS_BASE_URL", DEFAULT_CEREBRAS_BASE_URL
