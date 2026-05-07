@@ -233,7 +233,7 @@ Required document shape (mandatory — no deviations):
   border: "1px solid #E6D9CE", color: "#33302E", borderRadius: 6,
   fontFamily: "Inter", fontSize: 13 }}}}
 - Series colors in order (chart-only viz palette):
-  #8B5CF6, #3B82F6, #10B981, #FACC15, #F97316
+  #8B2332, #3B82F6, #10B981, #FACC15, #F97316
 - Line: strokeWidth=2, dot=false, type="monotone"
 - Bar: radius=[4,4,0,0]
 - Legend only when series > 1, small and muted (text-slate text-[12px])

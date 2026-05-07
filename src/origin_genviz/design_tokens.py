@@ -46,7 +46,7 @@ ORIGIN_TOKENS = {
     },
     "viz": {
         # Use this exact ordering as the chart series sequence.
-        "violet": "#8B5CF6",
+        "crimson": "#8B2332",
         "blue": "#3B82F6",
         "green": "#10B981",
         "yellow": "#FACC15",
@@ -71,7 +71,7 @@ ORIGIN_TOKENS = {
         "lg": "0 12px 28px rgba(26, 22, 20, 0.08), 0 2px 4px rgba(26, 22, 20, 0.05)",
         "xl": "0 24px 60px rgba(26, 22, 20, 0.12), 0 4px 8px rgba(26, 22, 20, 0.06)",
     },
-    "viz_sequence": ["violet", "blue", "green", "yellow", "orange"],
+    "viz_sequence": ["crimson", "blue", "green", "yellow", "orange"],
 }
 
 
@@ -92,7 +92,7 @@ def tailwind_config_block() -> str:
 
     Drop immediately after the Tailwind CDN <script>. Lets the agent
     write idiomatic Tailwind: bg-bone, text-carbon, border-hairline,
-    text-ember, bg-viz-violet, font-display, etc.
+    text-ember, bg-viz-crimson, font-display, etc.
     """
     n = ORIGIN_TOKENS["neutral"]
     a = ORIGIN_TOKENS["accent"]
@@ -125,7 +125,7 @@ def tailwind_config_block() -> str:
           warning: "{s['warning']}",
           danger: "{s['danger']}",
           viz: {{
-            violet: "{v['violet']}",
+            crimson: "{v['crimson']}",
             blue: "{v['blue']}",
             green: "{v['green']}",
             yellow: "{v['yellow']}",
@@ -191,7 +191,7 @@ def origin_base_css() -> str:
   --color-idle: {s['idle']};
   --color-warning: {s['warning']};
   --color-danger: {s['danger']};
-  --color-viz-violet: {v['violet']};
+  --color-viz-crimson: {v['crimson']};
   --color-viz-blue: {v['blue']};
   --color-viz-green: {v['green']};
   --color-viz-yellow: {v['yellow']};
@@ -247,7 +247,7 @@ PALETTE (Tailwind classes are preconfigured):
     warning {s['warning']}     → text-warning
     danger {s['danger']}      → text-danger
   Viz palette (CHART MARKS ONLY — never UI chrome). Use in this order:
-    viz.violet {v['violet']}  → bg-viz-violet / fill="#8B5CF6"
+    viz.crimson {v['crimson']}  → bg-viz-crimson / fill="#8B2332"
     viz.blue   {v['blue']}    → bg-viz-blue
     viz.green  {v['green']}   → bg-viz-green
     viz.yellow {v['yellow']}  → bg-viz-yellow
@@ -312,7 +312,7 @@ CHART RULES (Recharts):
   - XAxis/YAxis stroke="#E6D9CE", tick={{{{ fill: "#66605C", fontSize: 12, fontFamily: "Fira Code" }}}}
   - Tooltip contentStyle={{{{ backgroundColor: "#FFFCF8", border: "1px solid #E6D9CE",
       color: "#33302E", borderRadius: 6, fontFamily: "Inter", fontSize: 13 }}}}
-  - Series colors in order: #8B5CF6, #3B82F6, #10B981, #FACC15, #F97316
+  - Series colors in order: #8B2332, #3B82F6, #10B981, #FACC15, #F97316
   - Line: strokeWidth=2, dot=false, type="monotone"
   - Bar: radius=[4,4,0,0]
   - Legend only when series > 1, small and muted (text-slate text-[12px])
