@@ -39,34 +39,36 @@ const VIZ_URI_PREFIX = "ui://origin-genviz/result/";
 // recent viz under this URI so those stale references render correctly.
 const LEGACY_VIEWER_URI = "ui://origin-genviz/viewer.html";
 
-// OpenAI Apps SDK widget template. Annotated on every tool via
-// `_meta["openai/outputTemplate"]`. ChatGPT loads this resource into a
-// sandboxed iframe, exposes the tool result as `window.openai.toolOutput`,
-// and emits `openai:set_globals` when the result is ready. The template
-// reads `_meta["io.originhq/genviz"].html` and renders the agent-generated
-// widget inside an inner iframe.
-const OPENAI_VIEWER_URI = "ui://origin-genviz/viewer-openai.html";
-const OPENAI_TEMPLATE_MIME = "text/html+skybridge";
+// Widget templates for the two Apps-SDK-shaped hosts:
+//   viewer.html         — canonical MCP Apps (Claude Desktop, modern mcp-ui)
+//                         consumed via _meta.ui.resourceUri on the tool def
+//   viewer-openai.html  — OpenAI Apps SDK (ChatGPT)
+//                         consumed via _meta["openai/outputTemplate"]
+//
+// Both templates read the per-call HTML from result._meta["io.originhq/genviz"].
+// Both are served with the canonical MCP Apps MIME so any host that does
+// strict matching (text/html;profile=mcp-app) accepts them.
+const MCP_APPS_VIEWER_URI = "ui://origin-genviz/template-mcp-apps.html";
+const OPENAI_VIEWER_URI = "ui://origin-genviz/template-openai.html";
+const TEMPLATE_MIME = "text/html;profile=mcp-app";
 const OPENAI_OUTPUT_TEMPLATE_META = "openai/outputTemplate";
+const MCP_APPS_RESOURCE_URI_META = "ui";  // _meta.ui.resourceUri
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // dist/server.js → ../viewer-openai.html in the source tree.
-const OPENAI_VIEWER_HTML_CANDIDATES = [
-  path.resolve(__dirname, "viewer-openai.html"),
-  path.resolve(__dirname, "..", "viewer-openai.html"),
-];
-
-function loadOpenAIViewerHtml(): string {
-  for (const p of OPENAI_VIEWER_HTML_CANDIDATES) {
+function loadTemplate(filename: string): string {
+  const candidates = [
+    path.resolve(__dirname, filename),
+    path.resolve(__dirname, "..", filename),
+  ];
+  for (const p of candidates) {
     try {
       return readFileSync(p, "utf-8");
     } catch {
       /* try next */
     }
   }
-  throw new Error(
-    `viewer-openai.html not found in any of: ${OPENAI_VIEWER_HTML_CANDIDATES.join(", ")}`,
-  );
+  throw new Error(`${filename} not found in any of: ${candidates.join(", ")}`);
 }
 
 const PLACEHOLDER_HTML = `<!doctype html><html><body style="margin:0;padding:24px;background:#FFF1E5;color:#66605C;font:12px/1.4 'Fira Code',monospace;letter-spacing:0.08em;text-transform:uppercase">origin · no visualization for this tool result</body></html>`;
@@ -116,20 +118,28 @@ export function createServer(upstream: Upstream): Server {
   );
 
   const cache = new VizCache();
-  const openaiViewerHtml = loadOpenAIViewerHtml();
+  const openaiViewerHtml = loadTemplate("viewer-openai.html");
+  const mcpAppsViewerHtml = loadTemplate("viewer.html");
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     const tools = await upstream.listTools();
-    // Annotate every tool with the OpenAI Apps SDK template URI. ChatGPT
-    // (and any future Apps-SDK host) will render that template iframe and
-    // pass the tool result through `window.openai.toolOutput`. Other hosts
-    // ignore unknown _meta keys, so this is purely additive.
+    // Annotate every tool with both Apps-SDK template pointers:
+    //   _meta.ui.resourceUri        — canonical MCP Apps (Claude Desktop)
+    //   _meta["openai/outputTemplate"] — ChatGPT compatibility alias
+    // Hosts that don't recognize these keys ignore them.
     const annotated: Tool[] = tools.map((t) => {
       const existingMeta = (t as { _meta?: Record<string, unknown> })._meta ?? {};
+      const existingUi = (existingMeta[MCP_APPS_RESOURCE_URI_META] as
+        | Record<string, unknown>
+        | undefined) ?? {};
       return {
         ...t,
         _meta: {
           ...existingMeta,
+          [MCP_APPS_RESOURCE_URI_META]: {
+            ...existingUi,
+            resourceUri: MCP_APPS_VIEWER_URI,
+          },
           [OPENAI_OUTPUT_TEMPLATE_META]: OPENAI_VIEWER_URI,
         },
       } as Tool;
@@ -161,20 +171,14 @@ export function createServer(upstream: Upstream): Server {
     }
 
     if (viz) {
+      // Cache the per-call HTML so the LEGACY_VIEWER_URI (goose's stale
+      // pinned URI) can serve it. We deliberately do NOT append it to
+      // `result.content` as an embedded resource — that would make
+      // ChatGPT render it as a file attachment instead of activating the
+      // openai/outputTemplate widget. Hosts read the HTML out of
+      // _meta["io.originhq/genviz"] inside their template iframe.
       const vizUri = `${VIZ_URI_PREFIX}${cryptoRandomId()}.html`;
       cache.set(vizUri, viz.html);
-      const existingContent = Array.isArray(result.content) ? result.content : [];
-      result.content = [
-        ...existingContent,
-        {
-          type: "resource",
-          resource: {
-            uri: vizUri,
-            mimeType: "text/html",
-            text: viz.html,
-          },
-        },
-      ];
       const meta = (result._meta ?? {}) as Record<string, unknown>;
       result._meta = {
         ...meta,
@@ -185,7 +189,7 @@ export function createServer(upstream: Upstream): Server {
           rationale: viz.rationale ?? null,
         },
       };
-      console.error(`[server] embedded viz resource: uri=${vizUri} html_length=${viz.html.length} title=${viz.title ?? 'null'}`);
+      console.error(`[server] viz cached as ${vizUri} (sidechannel only) html_length=${viz.html.length} title=${viz.title ?? 'null'}`);
     }
 
     console.error(`[server] returning result, content blocks=${result.content?.length ?? 0}, meta keys=`, Object.keys(result._meta ?? {}));
@@ -195,15 +199,22 @@ export function createServer(upstream: Upstream): Server {
 
   server.setRequestHandler(ListResourcesRequestSchema, async () => {
     const uris = cache.list();
-    console.error(`[server] ListResources: returning ${uris.length} cached viz resources + legacy viewer + openai template`);
+    console.error(`[server] ListResources: returning ${uris.length} cached viz resources + legacy viewer + 2 templates`);
     return {
       resources: [
+        {
+          uri: MCP_APPS_VIEWER_URI,
+          name: "Origin viz (MCP Apps template)",
+          description:
+            "Widget template for canonical MCP Apps hosts (Claude Desktop). Reads each call's HTML from _meta[\"io.originhq/genviz\"].html via the @mcp-ui/ext-apps bridge.",
+          mimeType: TEMPLATE_MIME,
+        },
         {
           uri: OPENAI_VIEWER_URI,
           name: "Origin viz (OpenAI Apps SDK template)",
           description:
             "Widget template for ChatGPT / OpenAI Apps SDK. Reads each call's HTML from window.openai.toolOutput._meta[\"io.originhq/genviz\"].html.",
-          mimeType: OPENAI_TEMPLATE_MIME,
+          mimeType: TEMPLATE_MIME,
         },
         {
           uri: LEGACY_VIEWER_URI,
@@ -234,13 +245,19 @@ export function createServer(upstream: Upstream): Server {
       };
     }
 
+    // MCP Apps widget template — static, served verbatim.
+    if (uri === MCP_APPS_VIEWER_URI) {
+      console.error(`[server] ReadResource: serving MCP Apps template html_length=${mcpAppsViewerHtml.length}`);
+      return {
+        contents: [{ uri, mimeType: TEMPLATE_MIME, text: mcpAppsViewerHtml }],
+      };
+    }
+
     // OpenAI Apps SDK widget template — static, served verbatim.
     if (uri === OPENAI_VIEWER_URI) {
       console.error(`[server] ReadResource: serving OpenAI template html_length=${openaiViewerHtml.length}`);
       return {
-        contents: [
-          { uri, mimeType: OPENAI_TEMPLATE_MIME, text: openaiViewerHtml },
-        ],
+        contents: [{ uri, mimeType: TEMPLATE_MIME, text: openaiViewerHtml }],
       };
     }
 
