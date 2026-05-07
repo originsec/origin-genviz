@@ -20,6 +20,12 @@ DEFAULT_OAUTH_REDIRECT_PORT = 53217
 DEFAULT_OAUTH_LOGIN_TIMEOUT_S = 300.0
 
 
+def _parse_name_set(raw: str | None) -> frozenset[str]:
+    if not raw:
+        return frozenset()
+    return frozenset(part.strip() for part in raw.split(",") if part.strip())
+
+
 @dataclass(frozen=True)
 class Config:
     # Upstream MCP server
@@ -37,11 +43,24 @@ class Config:
     cerebras_model: str
     cerebras_temperature: float
 
+    # Visualization scope. Empty allowlist → all tools eligible (default).
+    # Names match the upstream tool name verbatim (no prefix). When both
+    # are set, allowlist wins; explicit deny then prunes.
+    viz_allowlist: frozenset[str]
+    viz_denylist: frozenset[str]
+
     # Tuning
     request_timeout_s: float
     agent_timeout_s: float
     agent_max_input_chars: int
     log_level: str
+
+    def viz_eligible(self, tool_name: str) -> bool:
+        if tool_name in self.viz_denylist:
+            return False
+        if self.viz_allowlist and tool_name not in self.viz_allowlist:
+            return False
+        return True
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -69,6 +88,8 @@ class Config:
             cerebras_temperature=float(
                 os.environ.get("CEREBRAS_TEMPERATURE", DEFAULT_CEREBRAS_TEMPERATURE)
             ),
+            viz_allowlist=_parse_name_set(os.environ.get("ORIGIN_GENVIZ_VIZ_ALLOW")),
+            viz_denylist=_parse_name_set(os.environ.get("ORIGIN_GENVIZ_VIZ_DENY")),
             request_timeout_s=float(os.environ.get("UPSTREAM_TIMEOUT_S", "60")),
             agent_timeout_s=float(os.environ.get("AGENT_TIMEOUT_S", "30")),
             agent_max_input_chars=int(

@@ -90,6 +90,8 @@ it has its own OAuth state.
 | `ORIGIN_GENVIZ_TOKEN_PATH`  | `$XDG_CONFIG_HOME/origin-genviz/credentials.json` | Where this proxy stores its own OAuth tokens. |
 | `ORIGIN_GENVIZ_OAUTH_PORT`  | `53217`                                  | Local port for the OAuth callback during login.      |
 | `ORIGIN_GENVIZ_OAUTH_TIMEOUT_S` | `300`                                | How long `login` waits for the browser flow.         |
+| `ORIGIN_GENVIZ_VIZ_ALLOW`   | (empty = all)                            | Comma-separated tool names eligible for viz. Default: all. |
+| `ORIGIN_GENVIZ_VIZ_DENY`    | (empty)                                  | Comma-separated tool names that NEVER go through the agent (e.g. schema-style reference dumps). |
 | `UPSTREAM_TIMEOUT_S`        | `60`                                     | Per-call HTTP timeout to upstream.                   |
 | `AGENT_TIMEOUT_S`           | `30`                                     | Hard cap on the viz agent.                           |
 | `AGENT_MAX_INPUT_CHARS`     | `60000`                                  | Truncate large tool results before sending to LLM.   |

@@ -154,7 +154,7 @@ def build_server(config: Config, upstream: Upstream, agent: VizAgent) -> Server:
         structured = getattr(upstream_result, "structuredContent", None)
 
         decision: VizDecision | None = None
-        if not is_error and agent.enabled:
+        if not is_error and agent.enabled and config.viz_eligible(name):
             text_for_agent = _extract_text(content)
             if structured is not None and not text_for_agent:
                 import json as _json
