@@ -10,6 +10,12 @@ system. The widget is served to the host using the **MCP Apps SDK**
 CDN scripts (Recharts, Tailwind, Google Fonts) load reliably across
 hosts (Claude Desktop, basic-host, etc).
 
+The widget is also exposed via the **OpenAI Apps SDK** template
+contract: every tool is annotated with `_meta["openai/outputTemplate"]`
+pointing at a `text/html+skybridge` resource, and ChatGPT inline-renders
+that template (reading the per-call HTML out of the same `_meta` payload).
+Hosts that don't speak the OpenAI Apps SDK ignore the extra meta key.
+
 Two processes:
 
 ```

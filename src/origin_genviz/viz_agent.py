@@ -451,6 +451,10 @@ Required document shape (mandatory — no deviations):
 - Line: strokeWidth=2, dot=false, type="monotone"
 - Bar: radius=[4,4,0,0]
 - Legend only when series > 1, small and muted (text-slate text-[12px])
+- All labels must be visible: use `interval={0}` on XAxis/YAxis to prevent
+  label dropping; rotate long XAxis labels (`angle={-45}` with `textAnchor="end"`);
+  ensure adequate chart margins (`margin={{top,right,bottom,left}}`) so nothing
+  clips; set `minTickGap` to prevent overlap. Never clip or hide text.
 - No 3D, no shadows, no animations beyond Recharts default.
 - Status colors (active/idle/warning/danger) and accents (jade/ember/
   iris/bronze) are NOT chart colors — never use them as series fills.

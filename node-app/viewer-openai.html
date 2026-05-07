@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Origin Genviz Viewer (OpenAI Apps SDK)</title>
+    <style>
+      :root { color-scheme: light dark; }
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: #FFF1E5;
+        color: #33302E;
+        font-family: "Inter", system-ui, -apple-system, sans-serif;
+        font-size: 13px;
+        line-height: 1.4;
+        min-height: 100%;
+      }
+      #root { min-height: 100vh; }
+      .empty {
+        padding: 24px;
+        color: #66605c;
+        font-family: "Fira Code", ui-monospace, monospace;
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .error {
+        padding: 16px 24px;
+        font-family: "Fira Code", ui-monospace, monospace;
+        font-size: 12px;
+        color: #c84b2c;
+        white-space: pre-wrap;
+      }
+      iframe.widget {
+        display: block;
+        width: 100%;
+        max-width: 720px;
+        margin: 0;
+        border: 0;
+        background: transparent;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div class="empty">Origin · awaiting tool result</div>
+    </div>
+    <script>
+      // OpenAI Apps SDK template. Reads the per-call widget HTML from the
+      // tool result's `_meta["io.originhq/genviz"].html` sidechannel and
+      // renders it inside a sandboxed inner iframe.
+      //
+      // ChatGPT (and any other Apps-SDK host) exposes the full tool result
+      // on `window.openai.toolOutput` and emits an `openai:set_globals`
+      // event whenever it changes. We don't depend on a npm SDK — the
+      // surface is small enough to hand-roll, which keeps the template
+      // CSP-friendly (no remote module imports).
+      var VIZ_META_KEY = "io.originhq/genviz";
+      var root = document.getElementById("root");
+
+      function setEmpty(text) {
+        root.innerHTML = "";
+        var div = document.createElement("div");
+        div.className = "empty";
+        div.textContent = text || "Origin · no visualization for this result";
+        root.appendChild(div);
+      }
+
+      function setError(text) {
+        root.innerHTML = "";
+        var div = document.createElement("div");
+        div.className = "error";
+        div.textContent = text;
+        root.appendChild(div);
+      }
+
+      function fitIframe(iframe) {
+        function sync() {
+          try {
+            var doc = iframe.contentDocument;
+            if (!doc) return;
+            var h = Math.max(
+              doc.documentElement ? doc.documentElement.scrollHeight : 0,
+              doc.body ? doc.body.scrollHeight : 0
+            );
+            if (h && Math.abs(iframe.clientHeight - h) > 4) {
+              iframe.style.height = h + "px";
+              document.body.style.minHeight = h + "px";
+              // Tell the host to grow its app iframe to match.
+              if (window.openai && typeof window.openai.requestDisplayMode === "function") {
+                // No-op for now; resize signal is implicit via document height.
+              }
+            }
+          } catch (_) {
+            /* cross-origin (sandbox without allow-same-origin) — give up. */
+          }
+        }
+        iframe.addEventListener("load", function () {
+          sync();
+          setTimeout(sync, 80);
+          setTimeout(sync, 250);
+          setTimeout(sync, 800);
+          setTimeout(sync, 2000);
+        });
+      }
+
+      function renderHtml(html, title) {
+        root.innerHTML = "";
+        var iframe = document.createElement("iframe");
+        iframe.className = "widget";
+        if (title) iframe.title = title;
+        iframe.setAttribute("sandbox", "allow-scripts allow-same-origin");
+        iframe.srcdoc = html;
+        iframe.style.height = "420px";
+        fitIframe(iframe);
+        root.appendChild(iframe);
+      }
+
+      function pickViz(toolOutput) {
+        if (!toolOutput || typeof toolOutput !== "object") return null;
+        // ChatGPT puts the full CallToolResult on toolOutput. We look in
+        // both `_meta` (canonical) and `meta` (some hosts normalise).
+        var meta = toolOutput._meta || toolOutput.meta;
+        if (!meta || typeof meta !== "object") return null;
+        var v = meta[VIZ_META_KEY];
+        if (!v || typeof v !== "object") return null;
+        if (typeof v.html !== "string" || !v.html) return null;
+        return { html: v.html, title: typeof v.title === "string" ? v.title : null };
+      }
+
+      function refresh() {
+        var out = window.openai && window.openai.toolOutput;
+        if (!out) {
+          setEmpty("Origin · awaiting tool result");
+          return;
+        }
+        if (out.isError) {
+          var text = "";
+          var content = out.content || [];
+          for (var i = 0; i < content.length; i++) {
+            var c = content[i];
+            if (c && c.type === "text" && typeof c.text === "string") {
+              text += (text ? "\n" : "") + c.text;
+            }
+          }
+          setError("Tool error\n\n" + (text || "(no error detail)"));
+          return;
+        }
+        var viz = pickViz(out);
+        if (!viz) {
+          setEmpty("Origin · no visualization for this result");
+          return;
+        }
+        renderHtml(viz.html, viz.title);
+      }
+
+      // ChatGPT bridges the tool result to the iframe via window.openai
+      // and re-fires `openai:set_globals` when it changes.
+      window.addEventListener("openai:set_globals", refresh);
+      // Initial render — toolOutput may already be populated when the
+      // iframe loads.
+      refresh();
+    </script>
+  </body>
+</html>

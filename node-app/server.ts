@@ -20,8 +20,12 @@ import {
   ListToolsRequestSchema,
   ReadResourceRequestSchema,
   type CallToolResult,
+  type Tool,
 } from "@modelcontextprotocol/sdk/types.js";
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { Upstream, VIZ_META_KEY, type VizPayload } from "./upstream.js";
 
 const SERVER_NAME = "origin-genviz";
@@ -34,6 +38,36 @@ const VIZ_URI_PREFIX = "ui://origin-genviz/result/";
 // readResource for it on every tool result. We dynamically serve the most
 // recent viz under this URI so those stale references render correctly.
 const LEGACY_VIEWER_URI = "ui://origin-genviz/viewer.html";
+
+// OpenAI Apps SDK widget template. Annotated on every tool via
+// `_meta["openai/outputTemplate"]`. ChatGPT loads this resource into a
+// sandboxed iframe, exposes the tool result as `window.openai.toolOutput`,
+// and emits `openai:set_globals` when the result is ready. The template
+// reads `_meta["io.originhq/genviz"].html` and renders the agent-generated
+// widget inside an inner iframe.
+const OPENAI_VIEWER_URI = "ui://origin-genviz/viewer-openai.html";
+const OPENAI_TEMPLATE_MIME = "text/html+skybridge";
+const OPENAI_OUTPUT_TEMPLATE_META = "openai/outputTemplate";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// dist/server.js → ../viewer-openai.html in the source tree.
+const OPENAI_VIEWER_HTML_CANDIDATES = [
+  path.resolve(__dirname, "viewer-openai.html"),
+  path.resolve(__dirname, "..", "viewer-openai.html"),
+];
+
+function loadOpenAIViewerHtml(): string {
+  for (const p of OPENAI_VIEWER_HTML_CANDIDATES) {
+    try {
+      return readFileSync(p, "utf-8");
+    } catch {
+      /* try next */
+    }
+  }
+  throw new Error(
+    `viewer-openai.html not found in any of: ${OPENAI_VIEWER_HTML_CANDIDATES.join(", ")}`,
+  );
+}
 
 const PLACEHOLDER_HTML = `<!doctype html><html><body style="margin:0;padding:24px;background:#FFF1E5;color:#66605C;font:12px/1.4 'Fira Code',monospace;letter-spacing:0.08em;text-transform:uppercase">origin · no visualization for this tool result</body></html>`;
 
@@ -82,10 +116,25 @@ export function createServer(upstream: Upstream): Server {
   );
 
   const cache = new VizCache();
+  const openaiViewerHtml = loadOpenAIViewerHtml();
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     const tools = await upstream.listTools();
-    return { tools };
+    // Annotate every tool with the OpenAI Apps SDK template URI. ChatGPT
+    // (and any future Apps-SDK host) will render that template iframe and
+    // pass the tool result through `window.openai.toolOutput`. Other hosts
+    // ignore unknown _meta keys, so this is purely additive.
+    const annotated: Tool[] = tools.map((t) => {
+      const existingMeta = (t as { _meta?: Record<string, unknown> })._meta ?? {};
+      return {
+        ...t,
+        _meta: {
+          ...existingMeta,
+          [OPENAI_OUTPUT_TEMPLATE_META]: OPENAI_VIEWER_URI,
+        },
+      } as Tool;
+    });
+    return { tools: annotated };
   });
 
   server.setRequestHandler(CallToolRequestSchema, async (req) => {
@@ -146,9 +195,16 @@ export function createServer(upstream: Upstream): Server {
 
   server.setRequestHandler(ListResourcesRequestSchema, async () => {
     const uris = cache.list();
-    console.error(`[server] ListResources: returning ${uris.length} cached viz resources + legacy viewer`);
+    console.error(`[server] ListResources: returning ${uris.length} cached viz resources + legacy viewer + openai template`);
     return {
       resources: [
+        {
+          uri: OPENAI_VIEWER_URI,
+          name: "Origin viz (OpenAI Apps SDK template)",
+          description:
+            "Widget template for ChatGPT / OpenAI Apps SDK. Reads each call's HTML from window.openai.toolOutput._meta[\"io.originhq/genviz\"].html.",
+          mimeType: OPENAI_TEMPLATE_MIME,
+        },
         {
           uri: LEGACY_VIEWER_URI,
           name: "Origin viz (latest)",
@@ -175,6 +231,16 @@ export function createServer(upstream: Upstream): Server {
       console.error(`[server] ReadResource: exact-match cache hit, html_length=${exact.length}`);
       return {
         contents: [{ uri, mimeType: "text/html", text: exact }],
+      };
+    }
+
+    // OpenAI Apps SDK widget template — static, served verbatim.
+    if (uri === OPENAI_VIEWER_URI) {
+      console.error(`[server] ReadResource: serving OpenAI template html_length=${openaiViewerHtml.length}`);
+      return {
+        contents: [
+          { uri, mimeType: OPENAI_TEMPLATE_MIME, text: openaiViewerHtml },
+        ],
       };
     }
 
