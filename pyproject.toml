@@ -1,0 +1,25 @@
+[project]
+name = "origin-genviz"
+version = "0.1.0"
+description = "Stdio MCP proxy for origin-staging that augments tool results with Origin-branded visualizations via Cerebras."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "David Kaplan", email = "david.kaplan@preludesecurity.com" }]
+dependencies = [
+    "mcp>=1.6.0",
+    "httpx>=0.27",
+    "openai>=1.40",
+    "anyio>=4.4",
+    "pydantic>=2.6",
+]
+
+[project.scripts]
+origin-genviz = "origin_genviz.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/origin_genviz"]
