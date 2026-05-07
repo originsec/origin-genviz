@@ -260,7 +260,9 @@ TYPOGRAPHY (two families, NO exceptions):
   Display tracking: -0.03em (-0.04em at the largest sizes).
   Subhead tracking: +0.02em.
   Uppercase labels: +0.08em (use .tracking-label).
-  Body NEVER below 14 px (text-sm = 14px is the floor).
+  Body in EMBEDDED widgets sits at 13 px (chat-density override of the
+  full-page 14 px floor — these widgets render inside a chat transcript,
+  not as standalone pages).
   Numbers ALWAYS tabular-nums. Comma thousands separators ("1,247").
   Units spaced from numbers ("80 ms", "2 s ago").
 
@@ -280,12 +282,17 @@ NUMBERS / DATA:
   Time absolute when precise ("14:02:08.121", monospaced),
   relative when approximate ("2 s ago").
 
-LAYOUT:
+LAYOUT — embedded-in-chat density (NOT full-page):
+  Widget max-width: 520 px. Charts that genuinely need width can grow to 720 px.
   Background: bg-bone almost always. bg-obsidian only for stats bands / dark CTAs.
-  Cards: bg-surface border border-hairline rounded-lg shadow-sm p-6 (24px) or p-8 (32px).
+  Cards: bg-surface border border-hairline rounded-lg shadow-sm p-4 (16px) or p-5 (20px).
   An "eyebrow" label sits at the top of cards (uppercase Fira Code, ember or slate),
-  not a heavy header bar. Outer padding 24–32 px; data-table inner padding 12–16 px.
-  Air, not noise. Generous whitespace between groups.
+  not a heavy header bar.
+  Sizes: body text-[13px], headline text-[15px] font-display, eyebrow/label
+  text-[10px] tracking-label, table cell text-[12px], KPI number text-[24–28px],
+  chart height 180–260 px, Lucide icons 14–16 px.
+  Card-internal gap-3 (12 px); section gap-3/gap-4. Tight density with one
+  unit of breathing room between groups — NOT generous full-page whitespace.
 
 VISUAL TEXTURE: the only allowed texture is a 1px hairline rule. NO gradients, NO patterns,
   NO drop shadows on text, NO glassmorphism, NO full-bleed photography, NO inner glows.

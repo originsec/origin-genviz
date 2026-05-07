@@ -103,7 +103,7 @@ Required document shape (mandatory — no deviations):
 {origin_css}
   </style>
 </head>
-<body class="bg-bone text-carbon font-body antialiased">
+<body class="bg-bone text-carbon font-body antialiased text-[13px] leading-snug">
   <div id="root"></div>
   <script type="text/babel" data-presets="react">
     const {{ useState, useMemo, useEffect }} = React;
@@ -159,7 +159,24 @@ Required document shape (mandatory — no deviations):
     full-bleed photography, NO inner glows. The only "texture" allowed
     is a 1px hairline (border-hairline) used as a structural divider.
 11. NO comments in JSX explaining obvious code. NO console.log.
-12. Page max-width 640–880px unless the chart genuinely needs more.
+12. Widget max-width **520px** — these render embedded inside a chat
+    transcript, NOT as a full page. Charts that genuinely need width
+    can grow to 720px; never wider.
+13. **Compact density.** This is mandatory. Widgets sit next to chat
+    text and must NOT dwarf it:
+      - Body root: text-[13px] leading-snug (override Tailwind's 16px default)
+      - Section headline (widget title, font-display): text-[15px]
+      - Eyebrow / metadata labels: text-[10px] tracking-label
+      - Table cell text: text-[12px]
+      - Table header: text-[10px] tracking-label
+      - KPI big number: text-[24px] or text-[28px] (NOT 48+)
+      - Card padding: p-4 (16px) or p-5 (20px) — NOT p-6/p-8
+      - Eyebrow → headline gap: mb-1 or mb-2 (NOT mb-4)
+      - Section gap: gap-3 (12px) — NOT gap-6
+      - Chart height: 180–260px — NOT 320+
+      - Lucide icons: 14px or 16px — NOT 24px
+    Set the body base size with an explicit className on <body> or the
+    root <div> (e.g. `text-[13px]`) so all child text inherits.
 
 {design_brief}
 
