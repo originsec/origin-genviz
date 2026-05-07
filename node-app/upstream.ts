@@ -90,7 +90,16 @@ export class Upstream {
       arguments: args,
     })) as CallToolResult;
 
+    console.error(`[upstream] callTool(${name}) returned, meta keys=`, Object.keys(result._meta ?? {}));
+    console.error(`[upstream] raw _meta:`, JSON.stringify(result._meta, null, 2));
+
     const viz = extractViz(result);
+    if (viz) {
+      console.error(`[upstream] extracted viz: title=${viz.title ?? 'null'} tool=${viz.tool ?? 'null'} rationale=${viz.rationale ?? 'null'} html_length=${viz.html.length}`);
+      console.error(`[upstream] viz html first 500 chars:\n${viz.html.slice(0, 500)}`);
+    } else {
+      console.error(`[upstream] no viz extracted`);
+    }
     if (viz && result._meta) {
       // Strip the sidechannel before forwarding so the host never sees it.
       const { [VIZ_META_KEY]: _stripped, ...rest } = result._meta as Record<

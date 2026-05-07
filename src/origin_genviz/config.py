@@ -19,6 +19,8 @@ DEFAULT_CEREBRAS_TEMPERATURE = 0.2
 DEFAULT_OAUTH_REDIRECT_PORT = 53217
 DEFAULT_OAUTH_LOGIN_TIMEOUT_S = 300.0
 
+DEFAULT_VIZ_DENYLIST = frozenset({"analytics_describe_schema"})
+
 
 def _parse_name_set(raw: str | None) -> frozenset[str]:
     if not raw:
@@ -89,7 +91,8 @@ class Config:
                 os.environ.get("CEREBRAS_TEMPERATURE", DEFAULT_CEREBRAS_TEMPERATURE)
             ),
             viz_allowlist=_parse_name_set(os.environ.get("ORIGIN_GENVIZ_VIZ_ALLOW")),
-            viz_denylist=_parse_name_set(os.environ.get("ORIGIN_GENVIZ_VIZ_DENY")),
+            viz_denylist=DEFAULT_VIZ_DENYLIST
+            | _parse_name_set(os.environ.get("ORIGIN_GENVIZ_VIZ_DENY")),
             request_timeout_s=float(os.environ.get("UPSTREAM_TIMEOUT_S", "60")),
             agent_timeout_s=float(os.environ.get("AGENT_TIMEOUT_S", "30")),
             agent_max_input_chars=int(

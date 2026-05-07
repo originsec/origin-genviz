@@ -148,6 +148,8 @@ def build_server(config: Config, upstream: Upstream, agent: VizAgent) -> Server:
                     text_for_agent = _json.dumps(structured, ensure_ascii=False)
                 except (TypeError, ValueError):
                     text_for_agent = repr(structured)
+            log.info("[server] text_for_agent length=%d chars for tool=%s", len(text_for_agent), name)
+            log.debug("[server] text_for_agent:\n%s", text_for_agent)
             decision = await agent.decide(name, arguments, text_for_agent, is_error)
 
         meta: dict[str, Any] | None = None
@@ -161,8 +163,10 @@ def build_server(config: Config, upstream: Upstream, agent: VizAgent) -> Server:
                 }
             }
             log.info(
-                "viz emitted for tool=%s (rationale=%s)", name, decision.rationale
+                "[server] viz emitted for tool=%s (rationale=%s) html_length=%d",
+                name, decision.rationale, len(decision.html)
             )
+            log.debug("[server] viz html:\n%s", decision.html)
         elif decision and decision.rationale:
             log.debug("no viz for %s: %s", name, decision.rationale)
 

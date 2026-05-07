@@ -88,27 +88,34 @@
         const sync = () => {
           try {
             const doc = iframe.contentDocument;
-            if (!doc) return;
+            if (!doc) {
+              console.error("[viewer] fitIframe: contentDocument is null");
+              return;
+            }
             const h = Math.max(
-              doc.documentElement.scrollHeight,
+              doc.documentElement ? doc.documentElement.scrollHeight : 0,
               doc.body ? doc.body.scrollHeight : 0,
             );
+            console.error("[viewer] fitIframe: measured height=" + h + "px");
             if (h && Math.abs(iframe.clientHeight - h) > 4) {
               iframe.style.height = h + "px";
               // Bubble up so the host can resize the App iframe too.
               document.body.style.minHeight = h + "px";
+              console.error("[viewer] fitIframe: resized iframe to " + h + "px");
             }
-          } catch {
-            /* cross-origin srcdoc; nothing to do */
+          } catch (e) {
+            console.error("[viewer] fitIframe: cross-origin error (should not happen with allow-same-origin):", e);
           }
         };
         iframe.addEventListener("load", () => {
+          console.error("[viewer] fitIframe: iframe load event fired");
           sync();
           // Widgets with async layout (font load, Recharts measure) settle
           // a tick later — re-sync a few times to catch them.
           setTimeout(sync, 80);
           setTimeout(sync, 250);
           setTimeout(sync, 800);
+          setTimeout(sync, 2000);
         });
       }
 
@@ -117,28 +124,53 @@
         const iframe = document.createElement("iframe");
         iframe.className = "widget";
         if (title) iframe.title = title;
-        // sandbox WITHOUT allow-same-origin: widget gets opaque origin and
-        // can't poke at our viewer document. allow-scripts is required for
-        // the React/Babel inside the widget to run.
-        iframe.setAttribute("sandbox", "allow-scripts");
+        // allow-scripts: React/Babel inside the widget need to run.
+        // allow-same-origin: REQUIRED so we can read contentDocument.scrollHeight
+        // to auto-size the iframe. The widget still can't escape the iframe.
+        iframe.setAttribute("sandbox", "allow-scripts allow-same-origin");
         iframe.srcdoc = html;
+        // Default height so the widget is visible even if measurement fails.
+        iframe.style.height = "420px";
         fitIframe(iframe);
         root.appendChild(iframe);
+        console.error("[viewer] renderHtml: iframe appended, srcdoc length=" + html.length);
       }
 
       function pickViz(result) {
-        if (!result || typeof result !== "object") return null;
+        console.error("[viewer] pickViz called with result keys:", Object.keys(result || {}));
+        console.error("[viewer] pickViz result._meta:", result?._meta);
+        if (!result || typeof result !== "object") {
+          console.error("[viewer] pickViz: result is not an object");
+          return null;
+        }
         const meta = result._meta;
-        if (!meta || typeof meta !== "object") return null;
+        console.error("[viewer] pickViz meta:", meta);
+        if (!meta || typeof meta !== "object") {
+          console.error("[viewer] pickViz: no meta");
+          return null;
+        }
         const v = meta[VIZ_META_KEY];
-        if (!v || typeof v !== "object") return null;
-        if (typeof v.html !== "string" || !v.html) return null;
+        console.error("[viewer] pickViz viz payload:", v ? { keys: Object.keys(v), htmlLength: v.html?.length } : null);
+        if (!v || typeof v !== "object") {
+          console.error("[viewer] pickViz: no viz payload under key", VIZ_META_KEY);
+          return null;
+        }
+        if (typeof v.html !== "string" || !v.html) {
+          console.error("[viewer] pickViz: html is not a string or empty");
+          return null;
+        }
+        console.error("[viewer] pickViz: FOUND viz, html length=" + v.html.length);
         return { html: v.html, title: typeof v.title === "string" ? v.title : null };
       }
 
       const app = new App({ name: "origin-genviz-viewer", version: "0.2.0" });
 
-      app.ontoolresult = (params) => {
+      app.addEventListener("toolresult", (params) => {
+        console.error("[viewer] ontoolresult FIRED");
+        console.error("[viewer] params keys:", Object.keys(params || {}));
+        console.error("[viewer] params.isError:", params?.isError);
+        console.error("[viewer] params._meta:", params?._meta);
+        console.error("[viewer] full params:", JSON.stringify(params, null, 2));
         try {
           if (params && params.isError) {
             // Surface upstream error text instead of an empty view.
@@ -151,23 +183,42 @@
             return;
           }
           const viz = pickViz(params);
+          console.error("[viewer] pickViz returned:", viz ? { htmlLength: viz.html.length, title: viz.title } : null);
           if (!viz) {
-            renderEmpty("Origin · no visualization for this result");
+            // Collapse viewer when there is no viz (text-only tool result)
+            root.innerHTML = "";
+            document.body.style.minHeight = "0";
+            document.documentElement.style.height = "auto";
+            console.error("[viewer] collapsed viewer (no viz)");
             return;
           }
           renderHtml(viz.html, viz.title);
         } catch (e) {
+          console.error("[viewer] CRASH in ontoolresult:", e);
           renderError("Viewer crashed: " + (e && e.stack ? e.stack : String(e)));
         }
-      };
+      });
 
-      app.onteardown = async () => ({});
+      app.addEventListener("toolinput", (params) => {
+        console.error("[viewer] ontoolinput FIRED, tool=", params?.name);
+      });
 
+      app.addEventListener("teardown", async () => {
+        console.error("[viewer] teardown received");
+      });
+
+      console.error("[viewer] starting App connect...");
       try {
         await app.connect();
+        console.error("[viewer] App.connect SUCCESS");
       } catch (e) {
+        console.error("[viewer] App.connect FAILED:", e);
         renderError("App.connect failed: " + (e && e.message ? e.message : String(e)));
       }
+
+      window.addEventListener("error", (e) => {
+        console.error("[viewer] global error:", e.error);
+      });
     </script>
   </body>
 </html>

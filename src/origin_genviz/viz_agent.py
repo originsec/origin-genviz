@@ -263,6 +263,8 @@ class VizAgent:
         self._config = config
         self._client: AsyncOpenAI | None = None
         self._system_prompt = build_system_prompt()
+        log.info("[viz_agent] system prompt built, length=%d chars", len(self._system_prompt))
+        log.debug("[viz_agent] system prompt:\n%s", self._system_prompt)
         if config.cerebras_api_key:
             self._client = AsyncOpenAI(
                 api_key=config.cerebras_api_key,
@@ -295,7 +297,7 @@ class VizAgent:
         except (TypeError, ValueError):
             args_pretty = repr(arguments)
 
-        return f"""\
+        prompt = f"""\
 UPSTREAM TOOL CALL
 ==================
 tool: {tool_name}
@@ -310,11 +312,19 @@ RAW RESULT
 Decide whether to visualize. If yes, render the React/Tailwind/Recharts
 HTML widget per the system prompt's contract. Return ONLY the JSON
 object."""
+        log.info("[viz_agent] built user prompt for tool=%s, length=%d chars", tool_name, len(prompt))
+        log.debug("[viz_agent] user prompt:\n%s", prompt)
+        return prompt
 
     async def _call(self, user_prompt: str) -> str | None:
         assert self._client is not None
         try:
             with anyio.fail_after(self._config.agent_timeout_s):
+                log.info("[viz_agent] calling cerebras model=%s", self._config.cerebras_model)
+                log.debug("[viz_agent] cerebras messages:\n%s", json.dumps([
+                    {"role": "system", "content": self._system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ], indent=2, ensure_ascii=False))
                 completion = await self._client.chat.completions.create(
                     model=self._config.cerebras_model,
                     temperature=self._config.cerebras_temperature,
@@ -333,8 +343,12 @@ object."""
             return None
 
         if not completion.choices:
+            log.info("[viz_agent] cerebras returned no choices")
             return None
-        return completion.choices[0].message.content or ""
+        raw = completion.choices[0].message.content or ""
+        log.info("[viz_agent] cerebras raw response length=%d chars", len(raw))
+        log.debug("[viz_agent] cerebras raw response:\n%s", raw)
+        return raw
 
     async def decide(
         self,
@@ -357,6 +371,11 @@ object."""
         if raw is None:
             return VizDecision(False, None, None, "agent unavailable")
         decision = _parse_decision(raw)
+        log.info("[viz_agent] parsed decision: visualize=%s title=%s rationale=%s html_len=%s",
+                 decision.visualize, decision.title, decision.rationale,
+                 len(decision.html) if decision.html else None)
+        if decision.html:
+            log.debug("[viz_agent] parsed html:\n%s", decision.html)
 
         # Single retry if the model said visualize=true but emitted bad HTML.
         if decision.visualize and not _html_looks_valid(decision.html):
@@ -370,9 +389,15 @@ object."""
                 decision = _parse_decision(retry)
 
         if decision.visualize and not _html_looks_valid(decision.html):
+            log.info("[viz_agent] invalid html after retry, falling back to no viz")
             return VizDecision(
                 False, None, None, f"agent: invalid html after retry ({decision.rationale})"
             )
+
+        if decision.visualize and decision.html:
+            log.info("[viz_agent] final html length=%d chars, first 200 chars:\n%s",
+                     len(decision.html), decision.html[:200])
+            log.debug("[viz_agent] final html:\n%s", decision.html)
 
         return decision
 
